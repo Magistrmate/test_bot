@@ -31,7 +31,8 @@ exact same thing to you!\
 @bot.message_handler(func=lambda _message: True)
 def echo_message(message):
   bot.reply_to(message, message.text)
-  db.reference("/users_database/" + str(message.from_user.id) + "/Info").set(message.json)
- 
+  db.reference("/users_database/" + str(message.from_user.id) +
+               "/Info").update(message.json['from'])
+
 
 bot.infinity_polling()
