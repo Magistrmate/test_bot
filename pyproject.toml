@@ -9,6 +9,8 @@ python = ">=3.10.0,<3.11"
 telebot = "^0.0.5"
 replit = "^3.3.2"
 firebase-admin = "^6.2.0"
+pyrogram = "^2.0.106"
+telethon = "^1.30.3"
 
 [tool.pyright]
 # https://github.com/microsoft/pyright/blob/main/docs/configuration.md

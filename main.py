@@ -30,9 +30,13 @@ exact same thing to you!\
 # ['text'])
 @bot.message_handler(func=lambda _message: True)
 def echo_message(message):
+  chat_test = -1001924397597
   bot.reply_to(message, message.text)
-  db.reference("/users_database/" + str(message.from_user.id) +
-               "/Info").update(message.json['from'])
+  if db.reference('/users_database/' + str(message.from_user.id)).get() is None:
+      bot.create_forum_topic(chat_test,
+      f'{message.from_user.first_name} {message.from_user.last_name}')
+  db.reference('/users_database/' + str(message.from_user.id) + '/' +
+               str(message.id)).set(message.json)
 
 
 bot.infinity_polling()
