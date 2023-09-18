@@ -30,7 +30,7 @@ exact same thing to you!\
 # ['text'])
 @bot.message_handler(func=lambda _message: True)
 def echo_message(message):
-  chat_test = -1001924397597
+  chat_test = int(os.environ['CHAT_TEST'])
   bot.reply_to(message, message.text)
   if db.reference('/users_database/' + str(message.from_user.id)).get() is None:
       bot.create_forum_topic(chat_test,
