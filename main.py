@@ -13,30 +13,34 @@ default_app = firebase_admin.initialize_app(cred, {
 })
 
 bot = telebot.TeleBot(os.environ['TOKEN'])
+chat_test = int(os.environ['CHAT_TEST'])
 
 
-# Handle '/start' and '/help'
 @bot.message_handler(commands=['help', 'start'])
 def send_welcome(message):
-  bot.reply_to(
-      message, """\
-Hi there, I am EchoBot.
-I am here to echo your kind words back to you. Just say anything nice and I'll say the 
-exact same thing to you!\
-""")
+  bot.reply_to(message, "Hi there, I am EchoBot")
 
 
-# Handle all other messages with content_type 'text' (content_types defaults to
-# ['text'])
 @bot.message_handler(func=lambda _message: True)
-def echo_message(message):
-  chat_test = int(os.environ['CHAT_TEST'])
-  bot.reply_to(message, message.text)
+def send_message(message):
   if db.reference('/users_database/' + str(message.from_user.id)).get() is None:
-      bot.create_forum_topic(chat_test,
-      f'{message.from_user.first_name} {message.from_user.last_name}')
+    topic = bot.create_forum_topic( chat_test,
+        f'{message.from_user.first_name} {message.from_user.last_name}')
+    id_topic = topic.message_thread_id
+    db.reference('/users_database/' + str(message.from_user.id) +
+                 '/topic_id').set(topic.message_thread_id)
+  else:
+    first_value = db.reference('/users_database/' + str(message.from_user.id) +
+                 '/topic_id').get()
+    id_topic = first_value
+    print(id_topic)
+  bot.send_message(chat_test, message.text, message_thread_id=id_topic)
   db.reference('/users_database/' + str(message.from_user.id) + '/' +
                str(message.id)).set(message.json)
 
+
+# @bot.message_handler(content_types=['forum_topic_created'])
+# def send_into_topic(message):
+#   return message.id
 
 bot.infinity_polling()
