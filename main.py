@@ -22,14 +22,13 @@ chats_with_bot_id = int(os.environ['CHATS_WITH_BOT_ID'])
 def id_topic_target(m):
   id_user = m.from_user.id
   if db.reference(f'/users/{id_user}').get() is None:
-    first_name = m.from_user.first_name
-    last_name = m.from_user.last_name
     topic = bot.create_forum_topic(
-        chats_with_bot_id, f'{first_name} {last_name}',
+        chats_with_bot_id, f'{m.from_user.first_name} {m.from_user.last_name}',
         random.choice(
             [0x6FB9F0, 0xFFD67E, 0xCB86DB, 0x8EEE98, 0xFF93B2, 0xFB6F5F]))
     id_topic = topic.message_thread_id
     db.reference(f'/users/{id_user}/id_topic').set(id_topic)
+    db.reference(f'/users/{id_user}/status').set('link_channel')
   else:
     id_topic = db.reference(f'/users/{id_user}/id_topic').get(etag=True)[0]
   return id_topic
@@ -41,36 +40,49 @@ def send(m, text, markup, user_to):
   bot.send_message(chats_with_bot_id, text, message_thread_id=id_topic)
   if user_to is True:
     bot.send_message(id_user, text, reply_markup=markup)
-  db.reference(f'/users/{id_user}/{m.id}').set(m.json)
-  db.reference(f'/users/{id_user}/{m.id}/answer_bot').set(text)
+  db.reference(f'/users/{id_user}/messages/{m.id}').set(m.json)
+  db.reference(f'/users/{id_user}/messages/{m.id}/answer_bot').set(text)
+
+
+def branch_which(m, branch, status, link, text_placeholder):
+  id_user = m.from_user.id
+  if m.entities is not None:
+    if m.entities[0].type == 'url':
+      send(m, db.reference(f'/script/{branch}/success').get(), 0, True)
+      offset = m.entities[0].offset
+      length = m.entities[0].length
+      db.reference(f'/users/{id_user}/{link}').set(
+          m.text[offset:offset + length])
+      db.reference(f'/users/{id_user}/status').set(status)
+    else:
+      send(m,
+           db.reference(f'/script/{branch}/not_this_entities').get(),
+           types.ForceReply(True, text_placeholder), True)
+  else:
+    send(m,
+         db.reference(f'/script/{branch}/no_entities').get(),
+         types.ForceReply(True, text_placeholder), True)
 
 
 @bot.message_handler(func=lambda _message: True, chat_types=['private'])
 def send_message(message):
   id_user = message.from_user.id
   send(message, f'@{message.from_user.username}\n{message.text}', 0, False)
-  if db.reference(f'/users/{id_user}/link_channel').get() is None:
+  if db.reference(f'/users/{id_user}/status').get() == 'link_channel':
     send(message,
          db.reference('/script/start_text').get(),
          types.ForceReply(True, 'Ссылка на канал'), True)
-    db.reference(f'/users/{id_user}/link_channel').set('wait')
-  elif db.reference(f'/users/{id_user}/link_channel').get() == 'wait':
-    if message.entities is not None:
-      if message.entities[0].type == 'url':
-        send(message, (
-            'Отлично! Теперь отправьте мне ссылку на материал с канала, который'
-            'вы хотели бы продвигать в первую очередь'), 0, True)
-        offset = message.entities[0].offset
-        length = message.entities[0].length
-        db.reference(f'/users/{id_user}/link_channel').set(
-            message.text[offset:offset + length])
-        db.reference(f'/users/{id_user}/link_top_media').set('wait')
-      else:
-        send(message, 'Не вижу ссылки на канал в вашем сообщении',
-             types.ForceReply(True, 'Ссылка на канал'), True)
+    db.reference(f'/users/{id_user}/status').set('wait_link_channel')
+  elif db.reference(f'/users/{id_user}/status').get(
+  ) == 'wait_link_channel' or 'wait_link_top_media':
+    if db.reference(f'/users/{id_user}/status').get() == 'wait_link_channel':
+      branch_which(message, 'for_link_channel', 'wait_link_top_media', 'link_channel',
+                   'Ссылка на канал')
     else:
-      send(message, 'Ответ должен содержать ссылку на канал',
-           types.ForceReply(True, 'Ссылка на канал'), True)
+      branch_which(message, 'for_link_top_media', 'registration_done', 'link_top_media',
+                   'Ссылка на пост, видео или статью')
+  else:
+    send(message, 'красава ты прошёл регистрацию', 0, True)
 
 
 bot.infinity_polling()
