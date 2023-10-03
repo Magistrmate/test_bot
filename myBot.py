@@ -20,26 +20,25 @@ bot = telebot.TeleBot(os.environ['TOKEN'])
 chats_with_bot_id = int(os.environ['CHATS_WITH_BOT_ID'])
 
 
-def db_get(m, name_db, key_which):
-  return db.reference(f'/{name_db}/{m.from_user.id}/{key_which}').get(
-      etag=True)[0]
+def db_get(name_db, key1, key2):
+  return db.reference(f'/{name_db}/{key1}/{key2}').get(etag=True)[0]
 
 
-def db_set(m, key_which, value_which):
-  return db.reference(f'/users/{m.from_user.id}/{key_which}').set(value_which)
+def db_set(m, key1, key2, key3, value):
+  return db.reference(f'/users/{m.from_user.id}/{key1}/{key2}/{key3}').set(value)
 
 
 def id_topic_target(m):
-  if db_get(m, 'users', '') is None:
+  if db_get('users', m.from_user.id, '') is None:
     topic = bot.create_forum_topic(
         chats_with_bot_id, f'{m.from_user.first_name} {m.from_user.last_name}',
         random.choice(
             [0x6FB9F0, 0xFFD67E, 0xCB86DB, 0x8EEE98, 0xFF93B2, 0xFB6F5F]))
     id_topic = topic.message_thread_id
-    db_set(m, 'id_topic', id_topic)
-    db_set(m, 'status', 'link_channel')
+    db_set(m, 'id_topic', '', '', id_topic)
+    db_set(m, 'status', '', '', 'link_channel')
   else:
-    id_topic = db_get(m, 'users', 'id_topic')
+    id_topic = db_get('users', m.from_user.id, 'id_topic')
   return id_topic
 
 
@@ -49,15 +48,15 @@ def send(m, text, markup, user_to):
   bot.send_message(chats_with_bot_id, text, message_thread_id=id_topic)
   if user_to is True:
     bot.send_message(id_user, text, reply_markup=markup)
-    db.reference(f'/users/{id_user}/messages/{m.id}').set(m.json)
-    db.reference(f'/users/{id_user}/messages/{m.id}/answer_bot').set(text)
+    db_set(m, 'messages', m.id, '', m.json)
+    db_set(m, 'messages', m.id, 'answer_bot', text)
 
 
 def branch_which(m, branch, status, link, text_placeholder):
   id_user = m.from_user.id
   if m.entities is not None:
     if m.entities[0].type == 'url':
-      send(m, db.reference(f'/script/{branch}/success').get(), 0, True)
+      send(m, db_get('script', branch, 'success'), 0, True)
       offset = m.entities[0].offset
       length = m.entities[0].length
       db.reference(f'/users/{id_user}/{link}').set(m.text[offset:offset +
