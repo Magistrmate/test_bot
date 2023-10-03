@@ -25,7 +25,8 @@ def db_get(name_db, key1, key2):
 
 
 def db_set(m, key1, key2, key3, value):
-  return db.reference(f'/users/{m.from_user.id}/{key1}/{key2}/{key3}').set(value)
+  return db.reference(f'/users/{m.from_user.id}/{key1}/{key2}/{key3}').set(
+      value)
 
 
 def id_topic_target(m):
@@ -43,32 +44,27 @@ def id_topic_target(m):
 
 
 def send(m, text, markup, user_to):
-  id_user = m.from_user.id
   id_topic = id_topic_target(m)
   bot.send_message(chats_with_bot_id, text, message_thread_id=id_topic)
   if user_to is True:
-    bot.send_message(id_user, text, reply_markup=markup)
+    bot.send_message(m.from_user.id, text, reply_markup=markup)
     db_set(m, 'messages', m.id, '', m.json)
     db_set(m, 'messages', m.id, 'answer_bot', text)
 
 
 def branch_which(m, branch, status, link, text_placeholder):
-  id_user = m.from_user.id
   if m.entities is not None:
     if m.entities[0].type == 'url':
       send(m, db_get('script', branch, 'success'), 0, True)
       offset = m.entities[0].offset
       length = m.entities[0].length
-      db.reference(f'/users/{id_user}/{link}').set(m.text[offset:offset +
-                                                          length])
-      db.reference(f'/users/{id_user}/status').set(status)
+      db_set(m, link, '', '', m.text[offset:offset + length])
+      db_set(m, 'status', '', '', status)
     else:
-      send(m,
-           db.reference(f'/script/{branch}/not_this_entities').get(),
+      send(m, db_get('script', branch, 'not_this_entities'),
            types.ForceReply(True, text_placeholder), True)
   else:
-    send(m,
-         db.reference(f'/script/{branch}/no_entities').get(),
+    send(m, db_get('script', branch, 'no_entities'),
          types.ForceReply(True, text_placeholder), True)
 
 
