@@ -20,18 +20,26 @@ bot = telebot.TeleBot(os.environ['TOKEN'])
 chats_with_bot_id = int(os.environ['CHATS_WITH_BOT_ID'])
 
 
+def db_get(m, name_db, key_which):
+  return db.reference(f'/{name_db}/{m.from_user.id}/{key_which}').get(
+      etag=True)[0]
+
+
+def db_set(m, key_which, value_which):
+  return db.reference(f'/users/{m.from_user.id}/{key_which}').set(value_which)
+
+
 def id_topic_target(m):
-  id_user = m.from_user.id
-  if db.reference(f'/users/{id_user}').get() is None:
+  if db_get(m, 'users', '') is None:
     topic = bot.create_forum_topic(
         chats_with_bot_id, f'{m.from_user.first_name} {m.from_user.last_name}',
         random.choice(
             [0x6FB9F0, 0xFFD67E, 0xCB86DB, 0x8EEE98, 0xFF93B2, 0xFB6F5F]))
     id_topic = topic.message_thread_id
-    db.reference(f'/users/{id_user}/id_topic').set(id_topic)
-    db.reference(f'/users/{id_user}/status').set('link_channel')
+    db_set(m, 'id_topic', id_topic)
+    db_set(m, 'status', 'link_channel')
   else:
-    id_topic = db.reference(f'/users/{id_user}/id_topic').get(etag=True)[0]
+    id_topic = db_get(m, 'users', 'id_topic')
   return id_topic
 
 
@@ -41,8 +49,8 @@ def send(m, text, markup, user_to):
   bot.send_message(chats_with_bot_id, text, message_thread_id=id_topic)
   if user_to is True:
     bot.send_message(id_user, text, reply_markup=markup)
-  db.reference(f'/users/{id_user}/messages/{m.id}').set(m.json)
-  db.reference(f'/users/{id_user}/messages/{m.id}/answer_bot').set(text)
+    db.reference(f'/users/{id_user}/messages/{m.id}').set(m.json)
+    db.reference(f'/users/{id_user}/messages/{m.id}/answer_bot').set(text)
 
 
 def branch_which(m, branch, status, link, text_placeholder):
@@ -70,6 +78,7 @@ def bot_check():
 
 
 def bot_runner():
+
   @bot.message_handler(func=lambda _message: True, chat_types=['private'])
   def send_message(message):
     id_user = message.from_user.id
@@ -92,6 +101,7 @@ def bot_runner():
                      'link_top_media', 'Ссылка на пост, видео или статью')
     else:
       send(message, 'красава ты прошёл регистрацию', 0, True)
+
   bot.infinity_polling(none_stop=True)
 
 
