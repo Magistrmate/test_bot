@@ -72,23 +72,27 @@ def bot_check():
   return bot.get_me()
 
 
+def check_admin(m):
+  if m.from_user.id == int(os.environ['MY_ID']):
+    username = 'Админ'
+  else:
+    username = f'@{m.from_user.username}'
+  return username
+
+
 def bot_runner():
 
   @bot.message_handler(func=lambda _message: True, chat_types=['private'])
   def send_message(message):
     id_user = message.from_user.id
-    if id_user == int(os.environ['MY_ID']):
-      send(message, f'Админка\n{message.text}', 0, False)
-    else:
-      send(message, f'@{message.from_user.username}\n{message.text}', 0, False)
-    if db.reference(f'/users/{id_user}/status').get() == 'link_channel':
-      send(message,
-           db.reference('/script/start_text').get(),
+    send(message, f'{check_admin(message)}\n{message.text}', 0, False)
+    if db_get('users', id_user, 'status') != ('registration_done'
+                                              and 'wait_link_channel'):
+      send(message, db_get('script', 'start_text', ''),
            types.ForceReply(True, 'Ссылка на канал'), True)
-      db.reference(f'/users/{id_user}/status').set('wait_link_channel')
-    elif db.reference(f'/users/{id_user}/status').get(
-    ) == 'wait_link_channel' or 'wait_link_top_media':
-      if db.reference(f'/users/{id_user}/status').get() == 'wait_link_channel':
+      db_set(message, 'status', '', '', 'wait_link_channel')
+    elif 'wait_link' in db_get('users', id_user, 'status'):
+      if db_get('users', id_user, 'status') == 'wait_link_channel':
         branch_which(message, 'for_link_channel', 'wait_link_top_media',
                      'link_channel', 'Ссылка на канал')
       else:
