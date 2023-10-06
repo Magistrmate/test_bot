@@ -86,8 +86,9 @@ def bot_runner():
   def send_message(message):
     id_user = message.from_user.id
     send(message, f'{check_admin(message)}\n{message.text}', 0, False)
-    if db_get('users', id_user, 'status') != ('registration_done'
-                                              and 'wait_link_channel'):
+    if db_get('users', id_user,
+              'status') != 'registration_done' and 'wait_link' not in db_get(
+                  'users', id_user, 'status'):
       send(message, db_get('script', 'start_text', ''),
            types.ForceReply(True, 'Ссылка на канал'), True)
       db_set(message, 'status', '', '', 'wait_link_channel')
