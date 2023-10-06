@@ -43,11 +43,13 @@ def id_topic_target(m):
   return id_topic
 
 
-def send(m, text, markup, user_to):
+def send(m, text, text_placeholder, user_to):
   id_topic = id_topic_target(m)
   bot.send_message(chats_with_bot_id, text, message_thread_id=id_topic)
   if user_to is True:
-    bot.send_message(m.from_user.id, text, reply_markup=markup)
+    bot.send_message(m.from_user.id,
+                     text,
+                     reply_markup=types.ForceReply(True, text_placeholder))
     db_set(m, 'messages', m.id, '', m.json)
     db_set(m, 'messages', m.id, 'answer_bot', text)
 
@@ -55,17 +57,19 @@ def send(m, text, markup, user_to):
 def branch_which(m, branch, status, link, text_placeholder):
   if m.entities is not None:
     if m.entities[0].type == 'url':
-      send(m, db_get('script', branch, 'success'), 0, True)
-      offset = m.entities[0].offset
-      length = m.entities[0].length
-      db_set(m, link, '', '', m.text[offset:offset + length])
-      db_set(m, 'status', '', '', status)
+      if 'dzen.ru' in m.text:
+        send(m, db_get('script', branch, 'success'), text_placeholder, True)
+        offset = m.entities[0].offset
+        length = m.entities[0].length
+        db_set(m, link, '', '', m.text[offset:offset + length])
+        db_set(m, 'status', '', '', status)
+      else:
+        send(m, db_get('script', 'not_dzen_link', ''), text_placeholder, True)
     else:
-      send(m, db_get('script', branch, 'not_this_entities'),
-           types.ForceReply(True, text_placeholder), True)
+      send(m, db_get('script', branch, 'not_this_entities'), text_placeholder,
+           True)
   else:
-    send(m, db_get('script', branch, 'no_entities'),
-         types.ForceReply(True, text_placeholder), True)
+    send(m, db_get('script', branch, 'no_entities'), text_placeholder, True)
 
 
 def bot_check():
@@ -89,8 +93,8 @@ def bot_runner():
     if db_get('users', id_user,
               'status') != 'registration_done' and 'wait_link' not in db_get(
                   'users', id_user, 'status'):
-      send(message, db_get('script', 'start_text', ''),
-           types.ForceReply(True, 'Ссылка на канал'), True)
+      send(message, db_get('script', 'start_text', ''), 'Ссылка на канал',
+           True)
       db_set(message, 'status', '', '', 'wait_link_channel')
     elif 'wait_link' in db_get('users', id_user, 'status'):
       if db_get('users', id_user, 'status') == 'wait_link_channel':
