@@ -7,6 +7,7 @@ import firebase_admin
 import telebot
 from firebase_admin import credentials, db  # type: ignore
 from telebot import types
+from telebot.util import quick_markup
 
 cred = credentials.Certificate(json.loads(os.environ['KEY']))
 
@@ -43,33 +44,39 @@ def id_topic_target(m):
   return id_topic
 
 
-def send(m, text, text_placeholder, user_to):
+def send(m, text, text_placeholder, user_to, button):
   id_topic = id_topic_target(m)
   bot.send_message(chats_with_bot_id, text, message_thread_id=id_topic)
-  if user_to is True:
-    bot.send_message(m.from_user.id,
-                     text,
-                     reply_markup=types.ForceReply(True, text_placeholder))
+  if user_to:
+    if button:
+      markup = quick_markup({db.reference(f'/users/{key1}/{key2}').get(etag=True)[0]: {
+          'callback_data': 'whatever'
+      }},
+                            row_width=2)
+    else:
+      markup = types.ForceReply(True, text_placeholder)
+    bot.send_message(m.from_user.id, text, reply_markup=markup)
     db_set(m, 'messages', m.id, '', m.json)
     db_set(m, 'messages', m.id, 'answer_bot', text)
 
 
-def branch_which(m, branch, status, link, text_placeholder):
+def branch_which(m, branch, status, link, text_placeholder, button):
   if m.entities is not None:
     if m.entities[0].type == 'url':
       if 'dzen.ru' in m.text:
-        send(m, db_get('script', branch, 'success'), text_placeholder, True)
+        send(m, db_get('script', branch, 'success'), text_placeholder, True,
+             button)
         offset = m.entities[0].offset
         length = m.entities[0].length
         db_set(m, link, '', '', m.text[offset:offset + length])
         db_set(m, 'status', '', '', status)
       else:
-        send(m, db_get('script', 'not_dzen_link', ''), text_placeholder, True)
+        send(m, db_get('script', 'not_dzen_link', ''), text_placeholder, True, False)
     else:
       send(m, db_get('script', branch, 'not_this_entities'), text_placeholder,
-           True)
+           True, False)
   else:
-    send(m, db_get('script', branch, 'no_entities'), text_placeholder, True)
+    send(m, db_get('script', branch, 'no_entities'), text_placeholder, True, False)
 
 
 def bot_check():
@@ -89,22 +96,22 @@ def bot_runner():
   @bot.message_handler(func=lambda _message: True, chat_types=['private'])
   def send_message(message):
     id_user = message.from_user.id
-    send(message, f'{check_admin(message)}\n{message.text}', 0, False)
+    send(message, f'{check_admin(message)}\n{message.text}', 0, False, False)
     if db_get('users', id_user,
               'status') != 'registration_done' and 'wait_link' not in db_get(
                   'users', id_user, 'status'):
       send(message, db_get('script', 'start_text', ''), 'Ссылка на канал',
-           True)
+           True, False)
       db_set(message, 'status', '', '', 'wait_link_channel')
     elif 'wait_link' in db_get('users', id_user, 'status'):
       if db_get('users', id_user, 'status') == 'wait_link_channel':
         branch_which(message, 'for_link_channel', 'wait_link_top_media',
-                     'link_channel', 'Ссылка на канал')
+                     'link_channel', 'Ссылка на канал', False)
       else:
         branch_which(message, 'for_link_top_media', 'registration_done',
-                     'link_top_media', 'Ссылка на пост, видео или статью')
+                     'link_top_media', 'Ссылка на пост, видео или статью', True)
     else:
-      send(message, 'красава ты прошёл регистрацию', 0, True)
+      send(message, 'красава ты прошёл регистрацию', 0, True, False)
 
   bot.infinity_polling(none_stop=True)
 
