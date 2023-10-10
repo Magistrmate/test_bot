@@ -49,7 +49,7 @@ def send(m, text, text_placeholder, user_to, button):
   bot.send_message(chats_with_bot_id, text, message_thread_id=id_topic)
   if user_to:
     if button:
-      markup = quick_markup({db.reference(f'/users/{key1}/{key2}').get(etag=True)[0]: {
+      markup = quick_markup({'hey': {
           'callback_data': 'whatever'
       }},
                             row_width=2)
@@ -71,12 +71,14 @@ def branch_which(m, branch, status, link, text_placeholder, button):
         db_set(m, link, '', '', m.text[offset:offset + length])
         db_set(m, 'status', '', '', status)
       else:
-        send(m, db_get('script', 'not_dzen_link', ''), text_placeholder, True, False)
+        send(m, db_get('script', 'not_dzen_link', ''), text_placeholder, True,
+             False)
     else:
       send(m, db_get('script', branch, 'not_this_entities'), text_placeholder,
            True, False)
   else:
-    send(m, db_get('script', branch, 'no_entities'), text_placeholder, True, False)
+    send(m, db_get('script', branch, 'no_entities'), text_placeholder, True,
+         False)
 
 
 def bot_check():
@@ -98,18 +100,24 @@ def bot_runner():
     id_user = message.from_user.id
     send(message, f'{check_admin(message)}\n{message.text}', 0, False, False)
     if db_get('users', id_user,
-              'status') != 'registration_done' and 'wait_link' not in db_get(
+              'status') != 'registration_done' and 'wait' not in db_get(
                   'users', id_user, 'status'):
-      send(message, db_get('script', 'start_text', ''), 'Ссылка на канал',
+      send(message, db_get('script', 'start_text', ''), 'Название канала',
            True, False)
-      db_set(message, 'status', '', '', 'wait_link_channel')
-    elif 'wait_link' in db_get('users', id_user, 'status'):
-      if db_get('users', id_user, 'status') == 'wait_link_channel':
+      db_set(message, 'status', '', '', 'wait_name_channel')
+    elif 'wait' in db_get('users', id_user, 'status'):
+      if db_get('users', id_user, 'status') == 'wait_name_channel':
+        send(message, 'Хорошо, теперь сообщите мне вашу ссылку на канал',
+             'Ссылка на канал', True, False)
+        db_set(message, 'status', '', '', 'wait_link_channel')
+        db_set(message, 'name_channel', '', '', message.text)
+      elif db_get('users', id_user, 'status') == 'wait_link_channel':
         branch_which(message, 'for_link_channel', 'wait_link_top_media',
                      'link_channel', 'Ссылка на канал', False)
       else:
         branch_which(message, 'for_link_top_media', 'registration_done',
-                     'link_top_media', 'Ссылка на пост, видео или статью', True)
+                     'link_top_media', 'Ссылка на пост, видео или статью',
+                     True)
     else:
       send(message, 'красава ты прошёл регистрацию', 0, True, False)
 

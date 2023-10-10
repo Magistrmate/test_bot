@@ -1626,6 +1626,21 @@ MarkupSafe = ">=2.1.1"
 watchdog = ["watchdog (>=2.3)"]
 
 [[package]]
+name = "xds-protos"
+version = "1.59.0"
+description = "Generated Python code from envoyproxy/data-plane-api"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "xds-protos-1.59.0.tar.gz", hash = "sha256:97f86e514885e3212134e0649387b64664df0b6a8d0a0266cd5bb1e2ad67b6dd"},
+    {file = "xds_protos-1.59.0-py3-none-any.whl", hash = "sha256:78beb74afb5504d525877050015da2241a5ef7674a41138e83ed024639b9d58c"},
+]
+
+[package.dependencies]
+grpcio = ">=1.49.0"
+protobuf = ">=4.21.6,<5.0dev"
+
+[[package]]
 name = "yarl"
 version = "1.9.2"
 description = "Yet another URL library"
@@ -1715,4 +1730,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10.0,<3.11"
-content-hash = "e29790f989422a407876f7e5c1a705f2d03757225226c4b0b512620dd62a5217"
+content-hash = "5b115ab5897cea3922e56fa49886544d93f4cd67b36125f6a8fae952e7b8d468"

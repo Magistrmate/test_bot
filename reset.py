@@ -6,10 +6,13 @@ from firebase_admin import credentials, db  # type: ignore
 
 cred = credentials.Certificate(json.loads(os.environ['KEY']))
 
-default_app = firebase_admin.initialize_app(  # type: ignore
+app = firebase_admin.initialize_app(  # type: ignore
     cred, {
         'databaseURL':
         'https://big-signifier-398111-default-rtdb.firebaseio.com/'
     })
 
-print(db.reference('users').child('link_channel').get().val())
+snapshot = db.reference('users').get()
+for key in snapshot:
+  move = db.reference(f'users/{key}/link_channel').get()
+  print(move)
