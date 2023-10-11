@@ -7,7 +7,6 @@ import firebase_admin
 import telebot
 from firebase_admin import credentials, db  # type: ignore
 from telebot import types
-from telebot.util import quick_markup
 
 cred = credentials.Certificate(json.loads(os.environ['KEY']))
 
@@ -49,10 +48,15 @@ def send(m, text, text_placeholder, user_to, button):
   bot.send_message(chats_with_bot_id, text, message_thread_id=id_topic)
   if user_to:
     if button:
-      markup = quick_markup({'hey': {
-          'callback_data': 'whatever'
-      }},
-                            row_width=2)
+      markup = types.InlineKeyboardMarkup()
+      buttons = []
+      for key in db.reference('users').get():
+        name_channel = db.reference(f'users/{key}/name_channel').get()
+        # link_channel = db.reference(f'users/{key}/link_channel').get()
+        button = types.InlineKeyboardButton(text=name_channel,
+                                            callback_data=name_channel)
+        buttons.append(button)
+      markup.add(*buttons)
     else:
       markup = types.ForceReply(True, text_placeholder)
     bot.send_message(m.from_user.id, text, reply_markup=markup)
