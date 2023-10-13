@@ -2,6 +2,7 @@ import json
 import os
 import random
 import threading
+import time
 
 import firebase_admin
 import telebot
@@ -38,6 +39,9 @@ def id_topic_target(m):
     id_topic = topic.message_thread_id
     db_set(m, 'id_topic', '', '', id_topic)
     db_set(m, 'status', '', '', 'link_channel')
+    db_set(m, 'score_help', '', '', 1)
+    db_set(m, 'score_support', '', '', 1)
+    db_set(m, 'hello', '', '', True)
   else:
     id_topic = db_get('users', m.from_user.id, 'id_topic')
   return id_topic
@@ -52,7 +56,6 @@ def send(m, text, text_placeholder, user_to, button):
       buttons = []
       for key in db.reference('users').get():
         name_channel = db.reference(f'users/{key}/name_channel').get()
-        # link_channel = db.reference(f'users/{key}/link_channel').get()
         button = types.InlineKeyboardButton(text=name_channel,
                                             callback_data=name_channel)
         buttons.append(button)
@@ -123,7 +126,13 @@ def bot_runner():
                      'link_top_media', 'Ссылка на пост, видео или статью',
                      True)
     else:
-      send(message, 'красава ты прошёл регистрацию', 0, True, False)
+      last_message = list(db.reference(f'users/{id_user}/messages').order_by_key().\
+                       limit_to_last(1).get())[0]
+      last_date = db.reference(f'users/{id_user}/messages/{last_message}/date').get()
+      if time.time() - last_date >= 86400:
+        send(message, 'Здравствуйте', 0, True, False)
+      else:
+        send(message, 'не', 0, True, False)
 
   bot.infinity_polling(none_stop=True)
 
