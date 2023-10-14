@@ -47,21 +47,29 @@ def id_topic_target(m):
   return id_topic
 
 
-def send(m, text, text_placeholder, user_to, button):
+def send(m, text, text_placeholder, user_to, addon, registraion):
   id_topic = id_topic_target(m)
   bot.send_message(chats_with_bot_id, text, message_thread_id=id_topic)
   if user_to:
-    if button:
-      markup = types.InlineKeyboardMarkup()
-      buttons = []
-      for key in db.reference('users').get():
-        name_channel = db.reference(f'users/{key}/name_channel').get()
-        button = types.InlineKeyboardButton(text=name_channel,
-                                            callback_data=name_channel)
-        buttons.append(button)
-      markup.add(*buttons)
+    if registraion:
+      markup = None
+      if addon == 'buttons':
+        markup = types.InlineKeyboardMarkup()
+        buttons = []
+        for key in db.reference('users').get():
+          name_channel = db.reference(f'users/{key}/name_channel').get()
+          button = types.InlineKeyboardButton(text=name_channel,
+                                              callback_data=name_channel)
+          buttons.append(button)
+        markup.add(*buttons)
+      elif addon is None:
+        markup = None
+      else:
+        markup = types.ForceReply(True, text_placeholder)
     else:
-      markup = types.ForceReply(True, text_placeholder)
+      if check_hello(m.from_user.id):
+        text = 'Здравствуйте, ' + text
+      markup = None
     bot.send_message(m.from_user.id, text, reply_markup=markup)
     db_set(m, 'messages', m.id, '', m.json)
     db_set(m, 'messages', m.id, 'answer_bot', text)
@@ -72,20 +80,20 @@ def branch_which(m, branch, status, link, text_placeholder, button):
     if m.entities[0].type == 'url':
       if 'dzen.ru' in m.text:
         send(m, db_get('script', branch, 'success'), text_placeholder, True,
-             button)
+             button, True)
         offset = m.entities[0].offset
         length = m.entities[0].length
         db_set(m, link, '', '', m.text[offset:offset + length])
         db_set(m, 'status', '', '', status)
       else:
         send(m, db_get('script', 'not_dzen_link', ''), text_placeholder, True,
-             False)
+             False, True)
     else:
       send(m, db_get('script', branch, 'not_this_entities'), text_placeholder,
-           True, False)
+           True, False, True)
   else:
     send(m, db_get('script', branch, 'no_entities'), text_placeholder, True,
-         False)
+         False, True)
 
 
 def bot_check():
@@ -100,39 +108,41 @@ def check_admin(m):
   return username
 
 
+def check_hello(id_user):
+  last_message = list(db.reference(f'users/{id_user}/messages').order_by_key().\
+     limit_to_last(1).get())[0]
+  last_date = db.reference(f'users/{id_user}/messages/{last_message}/date').get()
+  hello = time.time() - last_date >= 43200
+  return hello
+
+
 def bot_runner():
 
   @bot.message_handler(func=lambda _message: True, chat_types=['private'])
   def send_message(message):
     id_user = message.from_user.id
-    send(message, f'{check_admin(message)}\n{message.text}', 0, False, False)
+    send(message, f'{check_admin(message)}\n{message.text}', 0, False, 'placeholder', True)
     if db_get('users', id_user,
               'status') != 'registration_done' and 'wait' not in db_get(
                   'users', id_user, 'status'):
       send(message, db_get('script', 'start_text', ''), 'Название канала',
-           True, False)
+           True, 'placeholder', True)
       db_set(message, 'status', '', '', 'wait_name_channel')
     elif 'wait' in db_get('users', id_user, 'status'):
       if db_get('users', id_user, 'status') == 'wait_name_channel':
         send(message, 'Хорошо, теперь сообщите мне вашу ссылку на канал',
-             'Ссылка на канал', True, False)
+             'Ссылка на канал', True, 'placeholder', True)
         db_set(message, 'status', '', '', 'wait_link_channel')
         db_set(message, 'name_channel', '', '', message.text)
       elif db_get('users', id_user, 'status') == 'wait_link_channel':
         branch_which(message, 'for_link_channel', 'wait_link_top_media',
-                     'link_channel', 'Ссылка на канал', False)
+                     'link_channel', 'Ссылка на канал', 'placeholder')
       else:
         branch_which(message, 'for_link_top_media', 'registration_done',
                      'link_top_media', 'Ссылка на пост, видео или статью',
-                     True)
+                     'buttons')
     else:
-      last_message = list(db.reference(f'users/{id_user}/messages').order_by_key().\
-                       limit_to_last(1).get())[0]
-      last_date = db.reference(f'users/{id_user}/messages/{last_message}/date').get()
-      if time.time() - last_date >= 86400:
-        send(message, 'Здравствуйте', 0, True, False)
-      else:
-        send(message, 'не', 0, True, False)
+      send(message, 'давно не виделись епта', 'Лучи добра', True, '', False)
 
   bot.infinity_polling(none_stop=True)
 
