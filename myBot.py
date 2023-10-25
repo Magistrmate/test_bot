@@ -49,8 +49,9 @@ def id_topic_target(m):
 
 def send(m, text, text_placeholder, user_to, addon, registraion):
   id_topic = id_topic_target(m)
-  bot.send_message(chats_with_bot_id, text, message_thread_id=id_topic)
   if user_to:
+    if check_hello(m.from_user.id):
+      text = f'Здравствуйте, {m.from_user.first_name}, {text}'
     if registraion:
       markup = None
       if addon == 'buttons':
@@ -67,9 +68,8 @@ def send(m, text, text_placeholder, user_to, addon, registraion):
       else:
         markup = types.ForceReply(True, text_placeholder)
     else:
-      if check_hello(m.from_user.id):
-        text = 'Здравствуйте, ' + text
-      markup = None
+      markup = types.ForceReply(True, text_placeholder)
+    bot.send_message(chats_with_bot_id, text, message_thread_id=id_topic)
     bot.send_message(m.from_user.id, text, reply_markup=markup)
     db_set(m, 'messages', m.id, '', m.json)
     db_set(m, 'messages', m.id, 'answer_bot', text)
@@ -109,10 +109,14 @@ def check_admin(m):
 
 
 def check_hello(id_user):
-  last_message = list(db.reference(f'users/{id_user}/messages').order_by_key().\
-     limit_to_last(1).get())[0]
-  last_date = db.reference(f'users/{id_user}/messages/{last_message}/date').get()
-  hello = time.time() - last_date >= 43200
+  try:
+    last_message = list(db.reference(f'users/{id_user}/messages').order_by_key().\
+       limit_to_last(1).get())[0]
+    last_date = db.reference(
+        f'users/{id_user}/messages/{last_message}/date').get()
+    hello = time.time() - last_date >= 43200
+  except TypeError:
+    hello = True
   return hello
 
 
@@ -121,7 +125,8 @@ def bot_runner():
   @bot.message_handler(func=lambda _message: True, chat_types=['private'])
   def send_message(message):
     id_user = message.from_user.id
-    send(message, f'{check_admin(message)}\n{message.text}', 0, False, 'placeholder', True)
+    send(message, f'{check_admin(message)}\n{message.text}', 0, False,
+         'placeholder', True)
     if db_get('users', id_user,
               'status') != 'registration_done' and 'wait' not in db_get(
                   'users', id_user, 'status'):
