@@ -8,6 +8,7 @@ import firebase_admin
 import telebot
 from firebase_admin import credentials, db  # type: ignore
 from telebot import types
+from telebot.util import quick_markup
 
 cred = credentials.Certificate(json.loads(os.environ['KEY']))
 
@@ -41,7 +42,7 @@ def id_topic_target(m):
     db_set(m, 'status', '', '', 'link_channel')
     db_set(m, 'score_help', '', '', 1)
     db_set(m, 'score_support', '', '', 1)
-    db_set(m, 'hello', '', '', True)
+    db_set(m, 'score', '', '', 1)
   else:
     id_topic = db_get('users', m.from_user.id, 'id_topic')
   return id_topic
@@ -52,9 +53,12 @@ def send(m, text, text_placeholder, user_to, addon, registraion):
   if user_to:
     if check_hello(m.from_user.id):
       text = f'Здравствуйте, {m.from_user.first_name}, {text}'
+    else:
+      text = text.capitalize()
     if registraion:
       markup = None
       if addon == 'buttons':
+        text = f'{text} [inline URL](https://dzen.ru/magistrmateworld)'
         markup = types.InlineKeyboardMarkup()
         buttons = []
         for key in db.reference('users').get():
@@ -68,9 +72,26 @@ def send(m, text, text_placeholder, user_to, addon, registraion):
       else:
         markup = types.ForceReply(True, text_placeholder)
     else:
-      markup = types.ForceReply(True, text_placeholder)
-    bot.send_message(chats_with_bot_id, text, message_thread_id=id_topic)
-    bot.send_message(m.from_user.id, text, reply_markup=markup)
+      text = f'{text} [||spoiler||](https://dzen.ru/magistrmateworld)'
+      markup = types.InlineKeyboardMarkup()
+      button1 = types.InlineKeyboardButton('Поддержать этот канал',
+                                           url='https://dzen.ru/magistrmateworld')
+      button2 = types.InlineKeyboardButton('⬅ Назад', callback_data='back')
+      button3 = types.InlineKeyboardButton('Далее ➡', callback_data='next')
+      button4 = types.InlineKeyboardButton('Рейтинговая таблица каналов 📊',
+                                           callback_data='rate_channels')
+      markup.row(button1)
+      markup.row(button2, button3)
+      markup.row(button4)
+
+    bot.send_message(chats_with_bot_id,
+                     text, reply_markup=markup,
+                     message_thread_id=id_topic,
+                     parse_mode='MarkdownV2')
+    bot.send_message(m.from_user.id,
+                     text,
+                     reply_markup=markup,
+                     parse_mode='MarkdownV2')
     db_set(m, 'messages', m.id, '', m.json)
     db_set(m, 'messages', m.id, 'answer_bot', text)
 
@@ -147,7 +168,8 @@ def bot_runner():
                      'link_top_media', 'Ссылка на пост, видео или статью',
                      'buttons')
     else:
-      send(message, 'давно не виделись епта', 'Лучи добра', True, '', False)
+      send(message, 'выберите, чтобы вы хотели посмотреть', 'Лучи добра', True,
+           '', False)
 
   bot.infinity_polling(none_stop=True)
 
