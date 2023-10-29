@@ -8,7 +8,6 @@ import firebase_admin
 import telebot
 from firebase_admin import credentials, db  # type: ignore
 from telebot import types
-from telebot.util import quick_markup
 
 cred = credentials.Certificate(json.loads(os.environ['KEY']))
 
@@ -48,52 +47,54 @@ def id_topic_target(m):
   return id_topic
 
 
+def create_buttons():
+  create_markup = types.InlineKeyboardMarkup()
+  button1 = types.InlineKeyboardButton('Поддержать этот канал ⬆ ❤',
+                                       callback_data='support_channel')
+  button2 = types.InlineKeyboardButton('⬅ Назад', callback_data='back')
+  button3 = types.InlineKeyboardButton('Далее ➡', callback_data='next')
+  button4 = types.InlineKeyboardButton('Рейтинговая таблица каналов 📊',
+                                       callback_data='rate_channels')
+  create_markup.row(button1)
+  create_markup.row(button2, button3)
+  create_markup.row(button4)
+  return create_markup
+
+
 def send(m, text, text_placeholder, user_to, addon, registraion):
   id_topic = id_topic_target(m)
+  markup = None
+  parse_mode = None
   if user_to:
     if check_hello(m.from_user.id):
       text = f'Здравствуйте, {m.from_user.first_name}, {text}'
     else:
       text = text.capitalize()
     if registraion:
-      markup = None
       if addon == 'buttons':
-        text = f'{text} [inline URL](https://dzen.ru/magistrmateworld)'
-        markup = types.InlineKeyboardMarkup()
-        buttons = []
-        for key in db.reference('users').get():
-          name_channel = db.reference(f'users/{key}/name_channel').get()
-          button = types.InlineKeyboardButton(text=name_channel,
-                                              callback_data=name_channel)
-          buttons.append(button)
-        markup.add(*buttons)
+        text = f'{text} \\(Пользуйтесь кнопками, пожалуйста\\)[?](https://dzen.ru/magistrmateworld)'
+        markup = create_buttons()
+        parse_mode = 'MarkdownV2'
       elif addon is None:
         markup = None
       else:
         markup = types.ForceReply(True, text_placeholder)
     else:
-      text = f'{text} [||spoiler||](https://dzen.ru/magistrmateworld)'
-      markup = types.InlineKeyboardMarkup()
-      button1 = types.InlineKeyboardButton('Поддержать этот канал',
-                                           url='https://dzen.ru/magistrmateworld')
-      button2 = types.InlineKeyboardButton('⬅ Назад', callback_data='back')
-      button3 = types.InlineKeyboardButton('Далее ➡', callback_data='next')
-      button4 = types.InlineKeyboardButton('Рейтинговая таблица каналов 📊',
-                                           callback_data='rate_channels')
-      markup.row(button1)
-      markup.row(button2, button3)
-      markup.row(button4)
+      text = f'{text} \\(Пользуйтесь кнопками, пожалуйста\\)[?](https://dzen.ru/magistrmateworld)'
+      markup = create_buttons()
+      parse_mode = 'MarkdownV2'
 
-    bot.send_message(chats_with_bot_id,
-                     text, reply_markup=markup,
-                     message_thread_id=id_topic,
-                     parse_mode='MarkdownV2')
     bot.send_message(m.from_user.id,
                      text,
                      reply_markup=markup,
-                     parse_mode='MarkdownV2')
+                     parse_mode=parse_mode)
     db_set(m, 'messages', m.id, '', m.json)
     db_set(m, 'messages', m.id, 'answer_bot', text)
+  bot.send_message(chats_with_bot_id,
+                   text,
+                   reply_markup=markup,
+                   message_thread_id=id_topic,
+                   parse_mode=parse_mode)
 
 
 def branch_which(m, branch, status, link, text_placeholder, button):
@@ -170,6 +171,13 @@ def bot_runner():
     else:
       send(message, 'выберите, чтобы вы хотели посмотреть', 'Лучи добра', True,
            '', False)
+
+  @bot.callback_query_handler(func=lambda _call: True)
+  def callback_query_handler(call):
+    if call.data == 'next':
+      send(call, 'Далее епта', '', True, '', False)
+    else:
+      send(call, 'На далее жми', '', True, '', False)
 
   bot.infinity_polling(none_stop=True)
 
