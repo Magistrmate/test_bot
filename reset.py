@@ -1,6 +1,6 @@
 import json
 import os
-import time
+
 import firebase_admin
 from firebase_admin import credentials, db  # type: ignore
 
@@ -12,10 +12,13 @@ app = firebase_admin.initialize_app(  # type: ignore
         'https://big-signifier-398111-default-rtdb.firebaseio.com/'
     })
 
-ref = db.reference('users/411435416/messages')
-snapshot = ref.order_by_key().limit_to_last(1).get()
-print(list(snapshot)[0])
-print(db.reference(f'users/411435416/messages/{list(snapshot)[0]}/date').get())
-print(time.time())
-print(time.time() - 
-      db.reference(f'users/411435416/messages/{list(snapshot)[0]}/date').get())
+actual = '5791523535'
+keys = list(db.reference('users').get().keys())
+for index, key in enumerate(db.reference('users').get()):
+  if key == actual:
+    print(index)
+    back = keys[index - 1]
+    print(back)
+    next = keys[index + 1]
+    print(next)
+    print(index, db.reference(f'users/{key}/link_channel').get())

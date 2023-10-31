@@ -61,7 +61,7 @@ def create_buttons():
   return create_markup
 
 
-def send(m, text, text_placeholder, user_to, addon, registraion):
+def send(m, text, text_placeholder, user_to, addon, registraion, button):
   id_topic = id_topic_target(m)
   markup = None
   parse_mode = None
@@ -80,6 +80,7 @@ def send(m, text, text_placeholder, user_to, addon, registraion):
       else:
         markup = types.ForceReply(True, text_placeholder)
     else:
+      
       text = f'{text} \\(Пользуйтесь кнопками, пожалуйста\\)[?](https://dzen.ru/magistrmateworld)'
       markup = create_buttons()
       parse_mode = 'MarkdownV2'
@@ -102,20 +103,20 @@ def branch_which(m, branch, status, link, text_placeholder, button):
     if m.entities[0].type == 'url':
       if 'dzen.ru' in m.text:
         send(m, db_get('script', branch, 'success'), text_placeholder, True,
-             button, True)
+             button, True,'')
         offset = m.entities[0].offset
         length = m.entities[0].length
         db_set(m, link, '', '', m.text[offset:offset + length])
         db_set(m, 'status', '', '', status)
       else:
         send(m, db_get('script', 'not_dzen_link', ''), text_placeholder, True,
-             False, True)
+             False, True,'')
     else:
       send(m, db_get('script', branch, 'not_this_entities'), text_placeholder,
-           True, False, True)
+           True, False, True,'')
   else:
     send(m, db_get('script', branch, 'no_entities'), text_placeholder, True,
-         False, True)
+         False, True,'')
 
 
 def bot_check():
@@ -148,17 +149,17 @@ def bot_runner():
   def send_message(message):
     id_user = message.from_user.id
     send(message, f'{check_admin(message)}\n{message.text}', 0, False,
-         'placeholder', True)
+         'placeholder', True,'')
     if db_get('users', id_user,
               'status') != 'registration_done' and 'wait' not in db_get(
                   'users', id_user, 'status'):
       send(message, db_get('script', 'start_text', ''), 'Название канала',
-           True, 'placeholder', True)
+           True, 'placeholder', True, '')
       db_set(message, 'status', '', '', 'wait_name_channel')
     elif 'wait' in db_get('users', id_user, 'status'):
       if db_get('users', id_user, 'status') == 'wait_name_channel':
         send(message, 'Хорошо, теперь сообщите мне вашу ссылку на канал',
-             'Ссылка на канал', True, 'placeholder', True)
+             'Ссылка на канал', True, 'placeholder', True, '')
         db_set(message, 'status', '', '', 'wait_link_channel')
         db_set(message, 'name_channel', '', '', message.text)
       elif db_get('users', id_user, 'status') == 'wait_link_channel':
@@ -170,14 +171,12 @@ def bot_runner():
                      'buttons')
     else:
       send(message, 'выберите, чтобы вы хотели посмотреть', 'Лучи добра', True,
-           '', False)
+           '', False, '')
 
   @bot.callback_query_handler(func=lambda _call: True)
   def callback_query_handler(call):
-    if call.data == 'next':
-      send(call, 'Далее епта', '', True, '', False)
-    else:
-      send(call, 'На далее жми', '', True, '', False)
+    send(call, f'*Нажал на кнопку {call.data}*', '', False, '', False, '')
+    send(call, 'Далее епта', '', True, '', False, call.data)
 
   bot.infinity_polling(none_stop=True)
 
