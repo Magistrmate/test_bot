@@ -2,7 +2,7 @@ import json
 import os
 
 import firebase_admin
-from firebase_admin import credentials, db  # type: ignore
+from firebase_admin import credentials  # type: ignore
 
 cred = credentials.Certificate(json.loads(os.environ['KEY']))
 
@@ -12,13 +12,6 @@ app = firebase_admin.initialize_app(  # type: ignore
         'https://big-signifier-398111-default-rtdb.firebaseio.com/'
     })
 
-actual = '5791523535'
-keys = list(db.reference('users').get().keys())
-for index, key in enumerate(db.reference('users').get()):
-  if key == actual:
-    print(index)
-    back = keys[index - 1]
-    print(back)
-    next = keys[index + 1]
-    print(next)
-    print(index, db.reference(f'users/{key}/link_channel').get())
+text = "Класс! Вы зарегистрированы. Теперь посмотрим кому нужно помочь в первую очередь. Если всё же хотите ознакомиться с другими каналами, то нажмите на кнопки ниже."
+text = text.replace('_', '\\_').replace('*', '\\*').replace('[', '\\[').replace(']', '\\]').replace('(', '\\(').replace(')', '\\)').replace('~', '\\~').replace('"', '\"').replace('>', '\\>').replace('#', '\\#').replace('+', '\\+').replace('-', '\\-').replace('=', '\\=').replace('|', '\\|').replace('{', '\\{').replace('}','\\}').replace('.', '\\.').replace('!', '\\!')
+print(text)

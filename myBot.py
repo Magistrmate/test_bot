@@ -21,6 +21,17 @@ bot = telebot.TeleBot(os.environ['TOKEN'])
 chats_with_bot_id = int(os.environ['CHATS_WITH_BOT_ID'])
 
 
+def formating_text(text):
+  text = (text.replace('_', '\\_').replace('*', '\\*').replace('[', '\\[').
+          replace(']', '\\]').replace('(', '\\(').replace(')', '\\)').
+          replace('~', '\\~').replace('"', '\"').replace('>', '\\>').
+          replace('#', '\\#').replace('+', '\\+').replace('-', '\\-').
+          replace('=', '\\=').replace('|', '\\|').replace('{', '\\{').
+          replace('}','\\}').replace('.', '\\.').replace('!', '\\!'))
+  print(text)
+  return text
+
+
 def db_get(name_db, key1, key2):
   return db.reference(f'/{name_db}/{key1}/{key2}').get(etag=True)[0]
 
@@ -41,7 +52,7 @@ def id_topic_target(m):
     db_set(m, 'status', '', '', 'link_channel')
     db_set(m, 'score_help', '', '', 1)
     db_set(m, 'score_support', '', '', 1)
-    db_set(m, 'score', '', '', 1)
+    db_set(m, 'rating', '', '', 1)
   else:
     id_topic = db_get('users', m.from_user.id, 'id_topic')
   return id_topic
@@ -72,7 +83,20 @@ def send(m, text, text_placeholder, user_to, addon, registraion, button):
       text = text.capitalize()
     if registraion:
       if addon == 'buttons':
-        text = f'{text} \\(Пользуйтесь кнопками, пожалуйста\\)[?](https://dzen.ru/magistrmateworld)'
+        top_user_id = list(db.reference('users').order_by_child(
+            'rating').limit_to_last(1).get())[0]
+        link_channel = db.reference(f'users/{top_user_id}/link_channel').get()
+        link_top_media = db.reference(
+            f'users/{top_user_id}/link_top_media').get()
+        rating = db.reference(f'users/{top_user_id}/rating').get()
+        score_help = db.reference(f'users/{top_user_id}/score_help').get()
+        score_support = db.reference(
+            f'users/{top_user_id}/score_support').get()
+        text = (formating_text(f'{text}\nТоп контент {link_top_media}\nРейтинг '
+                              f'{rating}\nОчки помощи {score_help}\nОчки поддержки '
+                              f'{score_support}(Пользуйтесь кнопками, пожалуйста)') + 
+                f'[?]({link_channel}')
+        
         markup = create_buttons()
         parse_mode = 'MarkdownV2'
       elif addon is None:
@@ -80,8 +104,20 @@ def send(m, text, text_placeholder, user_to, addon, registraion, button):
       else:
         markup = types.ForceReply(True, text_placeholder)
     else:
-      
-      text = f'{text} \\(Пользуйтесь кнопками, пожалуйста\\)[?](https://dzen.ru/magistrmateworld)'
+      db.reference('users').order_by_child('rating').limit_to_last(
+          1).get()
+      order_table = list(
+          reversed(db.reference('users').order_by_child('rating').get()))
+      for index, key in enumerate(order_table):
+        if key == actual:
+          back = keys[index - 1]
+          next = keys[0] if index + 1 == len(keys) else keys[index + 1]
+          if button == 'next':
+            link = db.reference(f'users/{next}/link_channel').get()
+          else:
+            link = db.reference(f'users/{back}/link_channel').get()
+          text = f'{text} \\(Пользуйтесь кнопками, пожалуйста\\)[?]({link})'
+          break
       markup = create_buttons()
       parse_mode = 'MarkdownV2'
 
@@ -103,20 +139,20 @@ def branch_which(m, branch, status, link, text_placeholder, button):
     if m.entities[0].type == 'url':
       if 'dzen.ru' in m.text:
         send(m, db_get('script', branch, 'success'), text_placeholder, True,
-             button, True,'')
+             button, True, '')
         offset = m.entities[0].offset
         length = m.entities[0].length
         db_set(m, link, '', '', m.text[offset:offset + length])
         db_set(m, 'status', '', '', status)
       else:
         send(m, db_get('script', 'not_dzen_link', ''), text_placeholder, True,
-             False, True,'')
+             False, True, '')
     else:
       send(m, db_get('script', branch, 'not_this_entities'), text_placeholder,
-           True, False, True,'')
+           True, False, True, '')
   else:
     send(m, db_get('script', branch, 'no_entities'), text_placeholder, True,
-         False, True,'')
+         False, True, '')
 
 
 def bot_check():
@@ -149,7 +185,7 @@ def bot_runner():
   def send_message(message):
     id_user = message.from_user.id
     send(message, f'{check_admin(message)}\n{message.text}', 0, False,
-         'placeholder', True,'')
+         'placeholder', True, '')
     if db_get('users', id_user,
               'status') != 'registration_done' and 'wait' not in db_get(
                   'users', id_user, 'status'):
