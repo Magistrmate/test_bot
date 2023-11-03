@@ -22,13 +22,15 @@ chats_with_bot_id = int(os.environ['CHATS_WITH_BOT_ID'])
 
 
 def formating_text(text):
-  text = (text.replace('_', '\\_').replace('*', '\\*').replace('[', '\\[').
-          replace(']', '\\]').replace('(', '\\(').replace(')', '\\)').
-          replace('~', '\\~').replace('"', '\"').replace('>', '\\>').
-          replace('#', '\\#').replace('+', '\\+').replace('-', '\\-').
-          replace('=', '\\=').replace('|', '\\|').replace('{', '\\{').
-          replace('}','\\}').replace('.', '\\.').replace('!', '\\!'))
-  print(text)
+  text = (text.replace('_', '\\_').replace('*', '\\*').replace(
+      '[', '\\[').replace(']', '\\]').replace('(', '\\(').replace(
+          ')', '\\)').replace('~', '\\~').replace('"', '\"').replace(
+              '>', '\\>').replace('#', '\\#').replace('+', '\\+').replace(
+                  '-', '\\-').replace('=', '\\=').replace('|', '\\|').replace(
+                      '{',
+                      '\\{').replace('}',
+                                     '\\}').replace('.',
+                                                    '\\.').replace('!', '\\!'))
   return text
 
 
@@ -79,45 +81,45 @@ def send(m, text, text_placeholder, user_to, addon, registraion, button):
   if user_to:
     if check_hello(m.from_user.id):
       text = f'Здравствуйте, {m.from_user.first_name}, {text}'
-    else:
-      text = text.capitalize()
     if registraion:
       if addon == 'buttons':
-        top_user_id = list(db.reference('users').order_by_child(
-            'rating').limit_to_last(1).get())[0]
+        top_user_id = list(
+            db.reference('users').order_by_child('rating').limit_to_last(
+                1).get())[0]
+        name_channel = db.reference(f'users/{top_user_id}/name_channel').get()
         link_channel = db.reference(f'users/{top_user_id}/link_channel').get()
-        link_top_media = db.reference(
-            f'users/{top_user_id}/link_top_media').get()
+        db.reference(f'users/{top_user_id}/link_top_media').get()
         rating = db.reference(f'users/{top_user_id}/rating').get()
         score_help = db.reference(f'users/{top_user_id}/score_help').get()
         score_support = db.reference(
             f'users/{top_user_id}/score_support').get()
-        text = (formating_text(f'{text}\nТоп контент {link_top_media}\nРейтинг '
-                              f'{rating}\nОчки помощи {score_help}\nОчки поддержки '
-                              f'{score_support}(Пользуйтесь кнопками, пожалуйста)') + 
-                f'[?]({link_channel}')
-        
+        text = (formating_text(
+            f'{text}\nСтатистика канала "{name_channel}":\n{score_support}  🫂 (Очки '
+            f'поддержки)\n{score_help} 🙏 (Очки помощи)\n{rating}  🌟 (Рейтинг (Очки '
+            f'поддержки/помощи))') + f'[\\.]({link_channel})')
         markup = create_buttons()
         parse_mode = 'MarkdownV2'
+        db_set(m, 'actual_page', '', '', 1)
       elif addon is None:
         markup = None
       else:
         markup = types.ForceReply(True, text_placeholder)
     else:
-      db.reference('users').order_by_child('rating').limit_to_last(
-          1).get()
-      order_table = list(
-          reversed(db.reference('users').order_by_child('rating').get()))
-      for index, key in enumerate(order_table):
-        if key == actual:
-          back = keys[index - 1]
-          next = keys[0] if index + 1 == len(keys) else keys[index + 1]
-          if button == 'next':
-            link = db.reference(f'users/{next}/link_channel').get()
-          else:
-            link = db.reference(f'users/{back}/link_channel').get()
-          text = f'{text} \\(Пользуйтесь кнопками, пожалуйста\\)[?]({link})'
-          break
+      actual_page = db.reference(f'users/{m.from_user.id}/actual_page').get()
+      top_user_id = list(
+        db.reference('users').order_by_child('rating').limit_to_last(
+            actual_page).get())[0]
+      name_channel = db.reference(f'users/{top_user_id}/name_channel').get()
+      link_channel = db.reference(f'users/{top_user_id}/link_channel').get()
+      db.reference(f'users/{top_user_id}/link_top_media').get()
+      rating = db.reference(f'users/{top_user_id}/rating').get()
+      score_help = db.reference(f'users/{top_user_id}/score_help').get()
+      score_support = db.reference(
+        f'users/{top_user_id}/score_support').get()
+      text = (formating_text(
+        f'{text}\nСтатистика канала "{name_channel}":\n{score_support}  🫂 (Очки '
+        f'поддержки)\n{score_help} 🙏 (Очки помощи)\n{rating}  🌟 (Рейтинг (Очки '
+        f'поддержки/помощи))') + f'[\\.]({link_channel})')
       markup = create_buttons()
       parse_mode = 'MarkdownV2'
 
