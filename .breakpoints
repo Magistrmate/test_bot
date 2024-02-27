@@ -1,3 +1,12 @@
 {
-  "files": {}
+  "files": {
+    "myBot.py": [
+      {
+        "id": "82284bb3-14f7-4cb0-9b6c-9943419d4dc0",
+        "line": 251,
+        "version": 8438,
+        "index": 9958
+      }
+    ]
+  }
 }

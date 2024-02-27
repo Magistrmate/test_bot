@@ -74,7 +74,7 @@ def create_buttons():
  return create_markup
 
 
-def send(m, text, text_placeholder, user_to, addon, registraion, button):
+def send(m, text, text_placeholder, user_to, addon, registraion):
  id_topic = id_topic_target(m)
  markup = None
  parse_mode = None
@@ -120,6 +120,7 @@ def send(m, text, text_placeholder, user_to, addon, registraion, button):
        f'поддержки/помощи))') + f'[\\.]({link_channel})')
    markup = create_buttons()
    parse_mode = 'MarkdownV2'
+   db_set(m, 'actual_page', '', '', actual_page + 1)
 
   bot.send_message(m.from_user.id,
                    text,
@@ -134,25 +135,44 @@ def send(m, text, text_placeholder, user_to, addon, registraion, button):
                   parse_mode=parse_mode)
 
 
+def update(m, text):
+ actual_page = db.reference(f'users/{m.from_user.id}/actual_page').get()
+ top_user_id = list(
+     db.reference('users').order_by_child('rating').limit_to_last(
+         actual_page).get())[0]
+ name_channel = db.reference(f'users/{top_user_id}/name_channel').get()
+ link_channel = db.reference(f'users/{top_user_id}/link_channel').get()
+ db.reference(f'users/{top_user_id}/link_top_media').get()
+ rating = db.reference(f'users/{top_user_id}/rating').get()
+ score_help = db.reference(f'users/{top_user_id}/score_help').get()
+ score_support = db.reference(f'users/{top_user_id}/score_support').get()
+ text = (formating_text(
+     f'{text}\nСтатистика канала "{name_channel}":\n{score_support}  🫂 (Очки '
+     f'поддержки)\n{score_help} 🙏 (Очки помощи)\n{rating}  🌟 (Рейтинг (Очки '
+     f'поддержки/помощи))') + f'[\\.]({link_channel})')
+ bot.edit_message_text(message_id=m.message_id, text=text)
+ db_set(m, 'actual_page', '', '', actual_page + 1)
+
+
 def branch_which(m, branch, status, link, text_placeholder, button):
  if m.entities is not None:
   if m.entities[0].type == 'url':
    if 'dzen.ru' in m.text:
     send(m, db_get('script', branch, 'success'), text_placeholder, True,
-         button, True, '')
+         button, True)
     offset = m.entities[0].offset
     length = m.entities[0].length
     db_set(m, link, '', '', m.text[offset:offset + length])
     db_set(m, 'status', '', '', status)
    else:
     send(m, db_get('script', 'not_dzen_link', ''), text_placeholder, True,
-         False, True, '')
+         False, True)
   else:
    send(m, db_get('script', branch, 'not_this_entities'), text_placeholder,
-        True, False, True, '')
+        True, False, True)
  else:
   send(m, db_get('script', branch, 'no_entities'), text_placeholder, True,
-       False, True, '')
+       False, True)
 
 
 def bot_check():
@@ -186,17 +206,17 @@ def bot_runner():
  def send_message(message):
   id_user = message.from_user.id
   send(message, f'{check_admin(message)}\n{message.text}', 0, False,
-       'placeholder', True, '')
+       'placeholder', True)
   if db_get('users', id_user,
             'status') != 'registration_done' and 'wait' not in db_get(
                 'users', id_user, 'status'):
    send(message, db_get('script', 'start_text', ''), 'Название канала', True,
-        'placeholder', True, '')
+        'placeholder', True)
    db_set(message, 'status', '', '', 'wait_name_channel')
   elif 'wait' in db_get('users', id_user, 'status'):
    if db_get('users', id_user, 'status') == 'wait_name_channel':
     send(message, 'Хорошо, теперь скиньте мне вашу ссылку на канал',
-         'Ссылка на канал', True, 'placeholder', True, '')
+         'Ссылка на канал', True, 'placeholder', True)
     db_set(message, 'status', '', '', 'wait_link_channel')
     db_set(message, 'name_channel', '', '', message.text)
    elif db_get('users', id_user, 'status') == 'wait_link_channel':
@@ -208,12 +228,33 @@ def bot_runner():
                  'buttons')
   else:
    send(message, 'выберите, чтобы вы хотели посмотреть', 'Лучи добра', True,
-        '', False, '')
+        '', False)
 
  @bot.callback_query_handler(func=lambda _call: True)
  def callback_query_handler(call):
-  send(call, f'*Нажал на кнопку {call.data}*', '', False, '', False, '')
-  send(call, 'Далее епта', '', True, '', False, call.data)
+  send(call, f'*Нажал на кнопку {call.data}*', '', False, '', False)
+  if call.data == 'next':
+   actual_page = db.reference(f'users/{call.from_user.id}/actual_page').get()
+   top_user_id = list(
+       db.reference('users').order_by_child('rating').limit_to_last(
+           actual_page).get())[0]
+   name_channel = db.reference(f'users/{top_user_id}/name_channel').get()
+   link_channel = db.reference(f'users/{top_user_id}/link_channel').get()
+   db.reference(f'users/{top_user_id}/link_top_media').get()
+   rating = db.reference(f'users/{top_user_id}/rating').get()
+   score_help = db.reference(f'users/{top_user_id}/score_help').get()
+   score_support = db.reference(f'users/{top_user_id}/score_support').get()
+   text = (formating_text(
+       f'Статистика канала "{name_channel}":\n{score_support}  🫂 (Очки '
+       f'поддержки)\n{score_help} 🙏 (Очки помощи)\n{rating}  🌟 (Рейтинг (Очки '
+       f'поддержки/помощи))') + f'[\\.]({link_channel})')
+   markup = create_buttons()
+   bot.edit_message_text(chat_id=call.message.chat.id,
+                         message_id=call.message.id,
+                         text=text,
+                         reply_markup=markup)
+   db_set(call, 'actual_page', '', '', actual_page + 1)
+   # update(call, 'Далее епта')
 
  bot.infinity_polling(none_stop=True)
 
