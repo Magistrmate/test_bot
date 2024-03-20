@@ -179,7 +179,7 @@ def check_hello(id_user):
           limit_to_last(1).get())[0]
       last_date = db.reference(
           f'users/{id_user}/messages/{last_message}/date').get()
-      hello = time.time() - last_date >= 43200 # type: ignore
+      hello = time.time() - last_date >= 43200  # type: ignore
    except TypeError:
       hello = True
    return hello
@@ -218,9 +218,20 @@ def bot_runner():
    @bot.callback_query_handler(func=lambda _call: True)
    def callback_query_handler(call):
       send(call, f'*Нажал на кнопку {call.data}*', '', False, '', False)
-      if call.data == 'next':
+      if call.data == 'next' or call.data == 'back':
          actual_page = db.reference(
              f'users/{call.from_user.id}/actual_page').get()
+         if call.data == 'next':
+            if actual_page == len(db.reference('users').get()):
+               actual_page = 1
+            else:
+               actual_page = actual_page + 1 #type: ignore
+         else:
+            if actual_page == 1:
+               actual_page = len(db.reference('users').get())
+            else:
+               actual_page = actual_page - 1 #type: ignore
+         print(f'заход {actual_page}')
          top_user_id = list(
              db.reference('users').order_by_child('rating').limit_to_last(
                  actual_page).get())[0]
@@ -241,10 +252,12 @@ def bot_runner():
                                text=text,
                                reply_markup=markup,
                                parse_mode='MarkdownV2')
-         print(actual_page)
-         actual_page = 1 if actual_page == len(
-             db.reference('users').get()) else actual_page + 1  #type: ignore
+         # rewind = 1 if call.data == 'next' else -1
+         # actual_page = 1 if actual_page == len(db.reference(
+         #     'users').get()) else actual_page + rewind  #type: ignore
+         # actual_page = 3 if actual_page == 0 else actual_page + rewind  #type: ignore
          db_set(call, 'actual_page', '', '', actual_page)
+         print(f'выход {actual_page}')
 
    bot.infinity_polling(none_stop=True)
 

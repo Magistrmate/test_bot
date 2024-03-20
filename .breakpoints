@@ -2,22 +2,10 @@
   "files": {
     "myBot.py": [
       {
-        "id": "f83f8da8-c622-4902-9184-012fe986665a",
-        "line": 238,
-        "version": 8976,
-        "index": 9162
-      },
-      {
-        "id": "17f95e05-0359-49ab-ba71-53cfbf247f0c",
-        "line": 256,
-        "version": 9016,
-        "index": 10165
-      },
-      {
-        "id": "a9bd368a-759a-4f18-9bee-c945bcefbbc7",
-        "line": 259,
-        "version": 8882,
-        "index": 10292
+        "id": "91a73910-fd77-4d90-b796-c47a168ff365",
+        "line": 245,
+        "version": 9523,
+        "index": 10260
       }
     ]
   }
