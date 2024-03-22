@@ -60,10 +60,10 @@ def id_topic_target(m):
    return id_topic
 
 
-def create_buttons(form):
+def create_buttons(form, link):
    create_markup = types.InlineKeyboardMarkup()
    if form == 'main':
-      button1 = types.InlineKeyboardButton('Поддержать этот канал ⬆ ❤',
+      button1 = types.InlineKeyboardButton('⬆ Поддержать этот канал ❤',
                                            callback_data='support_channel')
       button2 = types.InlineKeyboardButton('⬅ Назад', callback_data='back')
       button3 = types.InlineKeyboardButton('Далее ➡', callback_data='next')
@@ -72,9 +72,20 @@ def create_buttons(form):
       create_markup.row(button1)
       create_markup.row(button2, button3)
       create_markup.row(button4)
-   else:
-      button1 = types.InlineKeyboardButton('Возврат ↩', callback_data='back_to_main')
+   elif form == 'top':
+      button1 = types.InlineKeyboardButton('Возврат ↩',
+                                           callback_data='back_to_main')
       create_markup.row(button1)
+   else:
+      button1 = types.InlineKeyboardButton('   Перейти оставить лайк 👍 и '\
+                                           'комментарий 💬   ',  link)
+      button2 = types.InlineKeyboardButton('Я вернулся и всё сделал', callback_data=
+                                           'well_done')
+      button3 = types.InlineKeyboardButton('Возврат ↩',
+                                           callback_data='back_to_main')
+      create_markup.row(button1)
+      create_markup.row(button2)
+      create_markup.row(button3)
    return create_markup
 
 
@@ -100,10 +111,10 @@ def send(m, text, text_placeholder, user_to, addon, registraion):
             score_support = db.reference(
                 f'users/{top_user_id}/score_support').get()
             text = (formating_text(
-                f'{text}\nСтатистика канала "{name_channel}":\n{score_support}  🫂 (Очки '
-                f'поддержки)\n{score_help} 🙏 (Очки помощи)\n{rating}  🌟 (Рейтинг (Очки '
-                f'поддержки/помощи))') + f'[\\.]({link_channel})')
-            markup = create_buttons('main')
+                f'{text}\nСтатистика канала "{name_channel}":\n{score_support}  🫂 ( '
+                f'Очки поддержки)\n{score_help} 🙏 (Очки помощи)\n{rating}  🌟 ('
+                f'Рейтинг (Очки поддержки/помощи))') + f'[\\.]({link_channel})')
+            markup = create_buttons('main', '')
             parse_mode = 'MarkdownV2'
             db_set(m, 'actual_page', '', '', 1)
          elif addon is None:
@@ -127,7 +138,7 @@ def send(m, text, text_placeholder, user_to, addon, registraion):
              f'{text}\nСтатистика канала "{name_channel}":\n{score_support}  🫂 (Очки '
              f'поддержки)\n{score_help} 🙏 (Очки помощи)\n{rating}  🌟 (Рейтинг (Очки '
              f'поддержки/помощи))') + f'[\\.]({link_channel})')
-         markup = create_buttons('main')
+         markup = create_buttons('main', '')
          parse_mode = 'MarkdownV2'
 
       bot.send_message(m.from_user.id,
@@ -223,21 +234,23 @@ def bot_runner():
    def callback_query_handler(call):
       send(call, f'*Нажал на кнопку {call.data}*', '', False, '', False)
       text = ''
-      markup = create_buttons('main')
+      actual_page = db.reference(
+          f'users/{call.from_user.id}/actual_page').get()
+      markup = create_buttons('main', '')
       if call.data == 'next' or call.data == 'back' or call.data == 'back_to_main':
-         actual_page = db.reference(
-             f'users/{call.from_user.id}/actual_page').get()
          quantity = len(db.reference('users').get())
-         if call.data == 'next':
-            if actual_page == quantity:
-               actual_page = 1
+         if call.data != 'back_to_main':
+            if call.data == 'next':
+               if actual_page == quantity:
+                  actual_page = 1
+               else:
+                  actual_page = actual_page + 1  #type: ignore
             else:
-               actual_page = actual_page + 1  #type: ignore
-         else:
-            if actual_page == 1:
-               actual_page = quantity
-            else:
-               actual_page = actual_page - 1  #type: ignore
+               if actual_page == 1:
+                  actual_page = quantity
+               else:
+                  actual_page = actual_page - 1  #type: ignore
+            db_set(call, 'actual_page', '', '', actual_page)
          top_user_id = list(
              db.reference('users').order_by_child('rating').limit_to_last(
                  actual_page).get())[0]
@@ -252,10 +265,9 @@ def bot_runner():
              f'поддержки)\n{score_help} 🙏 (Очки помощи)\n{rating} 🌟 (Рейтинг (Очки '
              f'поддержки/помощи))\n{actual_page} #️⃣'
              f' в рейтинге из {quantity} каналов') + f'[\\.]({link_channel})')
-         db_set(call, 'actual_page', '', '', actual_page)
-         markup = create_buttons('main')
+         markup = create_buttons('main', '')
       elif call.data == 'rate_channels':
-         index = 1
+         i = 1
          for user_id in list(
              reversed(db.reference('users').order_by_child('rating').get())):
             name_channel = db.reference(f'users/{user_id}/name_channel').get()
@@ -264,11 +276,24 @@ def bot_runner():
             score_help = db.reference(f'users/{user_id}/score_help').get()
             score_support = db.reference(
                 f'users/{user_id}/score_support').get()
-            text = (text + f'{index} #️⃣ {name_channel} {score_support} 🫂 {score_help} ' 
-                           f'🙏 {rating} 🌟\n')
-            index = index + 1
+            text = (text +
+                    f'{i} #️⃣ {name_channel} {score_support} 🫂 {score_help} '
+                    f'🙏 {rating} 🌟\n')
+            i = i + 1
          text = formating_text(f'ТОП 10 каналов 📊\n{text}')
-         markup = create_buttons('top')
+         markup = create_buttons('top', '')
+      elif call.data == 'support_channel':
+         actual_user_id = list(
+             db.reference('users').order_by_child('rating').limit_to_last(
+                 actual_page).get())[0]
+         link_top_media = db.reference(
+             f'users/{actual_user_id}/link_top_media').get()
+         text = (formating_text(
+            'Вот материал с канала, который автор хотел бы продвигать '\
+            'в первую очередь 🔝') + f'[\\.]({link_top_media})')
+         markup = create_buttons('top_media', link_top_media)
+      elif call.data == 'well_done':
+         text='Красава'
       bot.edit_message_text(chat_id=call.message.chat.id,
                             message_id=call.message.id,
                             text=text,
