@@ -97,74 +97,39 @@ def message_channel(user_id):
    rating = db.reference(f'users/{top_user_id}/rating').get()
    score_help = db.reference(f'users/{top_user_id}/score_help').get()
    score_support = db.reference(f'users/{top_user_id}/score_support').get()
-   text = (formating_text(
-       f'Статистика канала "{name_channel}":\n{score_support} 🫂 (Очки '
-       f'поддержки)\n{score_help} 🙏 (Очки помощи)\n{rating} 🌟 (Рейтинг (Очки '
-       f'поддержки/помощи))\n{actual_page} #️⃣'
-       f' в рейтинге из {quantity} каналов') + f'[\\.]({link_channel})')
-   return text
+   return formating_text(f'Статистика канала "{name_channel}":\n{score_support} 🫂 (Очки '
+          f'поддержки)\n{score_help} 🙏 (Очки помощи)\n{rating} 🌟 (Рейтинг (Очки '
+          f'поддержки/помощи))\n{actual_page} #️⃣ '
+          f'в рейтинге из {quantity} каналов') + f'[\\.]({link_channel})'
 
 
-def send(m, text, text_placeholder, user_to, addon, registraion):
+def send(m, text, text_placeholder, user_to, addon, registraion, markup=None, 
+         parse_mode=None):
    id_topic = id_topic_target(m)
-   markup = None
-   parse_mode = None
    if user_to:
       if check_hello(m.from_user.id):
          text = f'Здравствуйте, {m.from_user.first_name}, {text}'
       if registraion:
          if addon == 'buttons':
-            print('ok')
-         #    top_user_id = list(
-         #        db.reference('users').order_by_child('rating').limit_to_last(
-         #            1).get())[0]
-         #    name_channel = db.reference(
-         #        f'users/{top_user_id}/name_channel').get()
-         #    link_channel = db.reference(
-         #        f'users/{top_user_id}/link_channel').get()
-         #    db.reference(f'users/{top_user_id}/link_top_media').get()
-         #    rating = db.reference(f'users/{top_user_id}/rating').get()
-         #    score_help = db.reference(f'users/{top_user_id}/score_help').get()
-         #    score_support = db.reference(
-         #        f'users/{top_user_id}/score_support').get()
-         #    text = (formating_text(
-         #        f'{text}\nСтатистика канала "{name_channel}":\n{score_support}  🫂 ( '
-         #        f'Очки поддержки)\n{score_help} 🙏 (Очки помощи)\n{rating}  🌟 ('
-         #        f'Рейтинг (Очки поддержки/помощи))') +
-         #            f'[\\.]({link_channel})')
-         #    markup = create_buttons('main', '')
-         #    parse_mode = 'MarkdownV2'
-         #    db_set(m, 'actual_page', '', '', 1)
-         # elif addon is None:
-         #    markup = None
+            db_set(m, 'actual_page', '', '', 1)
+            text = f'{formating_text(text)}\n{message_channel(m.from_user.id)}'
+            markup = create_buttons('main', '')
+            parse_mode = 'MarkdownV2'
+         elif addon is None:
+            markup = None
          else:
             markup = types.ForceReply(True, text_placeholder)
       else:
-         actual_page = db.reference(
-             f'users/{m.from_user.id}/actual_page').get()
-         top_user_id = list(
-             db.reference('users').order_by_child('rating').limit_to_last(
-                 actual_page).get())[0]
-         name_channel = db.reference(f'users/{top_user_id}/name_channel').get()
-         link_channel = db.reference(f'users/{top_user_id}/link_channel').get()
-         db.reference(f'users/{top_user_id}/link_top_media').get()
-         rating = db.reference(f'users/{top_user_id}/rating').get()
-         score_help = db.reference(f'users/{top_user_id}/score_help').get()
-         score_support = db.reference(
-             f'users/{top_user_id}/score_support').get()
-         text = (formating_text(
-             f'{text}\nСтатистика канала "{name_channel}":\n{score_support}  🫂 (Очки '
-             f'поддержки)\n{score_help} 🙏 (Очки помощи)\n{rating}  🌟 (Рейтинг (Очки '
-             f'поддержки/помощи))') + f'[\\.]({link_channel})')
+         text = f'{formating_text(text)}\n{message_channel(m.from_user.id)}'
          markup = create_buttons('main', '')
          parse_mode = 'MarkdownV2'
 
-      bot.send_message(m.from_user.id,
-                       message_channel(m.from_user.id),
-                       reply_markup=markup,
-                       parse_mode=parse_mode)
       db_set(m, 'messages', m.id, '', m.json)
       db_set(m, 'messages', m.id, 'answer_bot', text)
+      bot.send_message(m.from_user.id,
+           text,
+           reply_markup=markup,
+           parse_mode=parse_mode)
    bot.send_message(chats_with_bot_id,
                     text,
                     reply_markup=markup,
@@ -233,7 +198,7 @@ def bot_runner():
          db_set(message, 'status', '', '', 'wait_name_channel')
       elif 'wait' in db_get('users', id_user, 'status'):
          if db_get('users', id_user, 'status') == 'wait_name_channel':
-            send(message, 'Хорошо, теперь скиньте мне вашу ссылку на канал',
+            send(message, 'Хорошо, теперь скиньте мне вашу ссылку на канал 😌',
                  'Ссылка на канал', True, 'placeholder', True)
             db_set(message, 'status', '', '', 'wait_link_channel')
             db_set(message, 'name_channel', '', '', message.text)
