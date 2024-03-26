@@ -97,18 +97,26 @@ def message_channel(user_id):
    rating = db.reference(f'users/{top_user_id}/rating').get()
    score_help = db.reference(f'users/{top_user_id}/score_help').get()
    score_support = db.reference(f'users/{top_user_id}/score_support').get()
-   return formating_text(f'Статистика канала "{name_channel}":\n{score_support} 🫂 (Очки '
-          f'поддержки)\n{score_help} 🙏 (Очки помощи)\n{rating} 🌟 (Рейтинг (Очки '
-          f'поддержки/помощи))\n{actual_page} #️⃣ '
-          f'в рейтинге из {quantity} каналов') + f'[\\.]({link_channel})'
+   return formating_text(
+       f'Статистика канала "{name_channel}":\n{score_support} 🫂 '
+       f'(Очки поддержки)\n{score_help} 🙏 (Очки помощи)\n{rating} 🌟 (Рейтинг '
+       f'(Очки поддержки/помощи))\n{actual_page} #️⃣ '
+       f'в рейтинге из {quantity} каналов') + f'[\\.]({link_channel})'
 
 
-def send(m, text, text_placeholder, user_to, addon, registraion, markup=None, 
+def send(m,
+         text,
+         text_placeholder,
+         user_to,
+         addon,
+         registraion,
+         markup=None,
          parse_mode=None):
-   id_topic = id_topic_target(m)
    if user_to:
       if check_hello(m.from_user.id):
          text = f'Здравствуйте, {m.from_user.first_name}, {text}'
+      elif registraion is False:
+         text = text.capitalize()
       if registraion:
          if addon == 'buttons':
             db_set(m, 'actual_page', '', '', 1)
@@ -119,6 +127,7 @@ def send(m, text, text_placeholder, user_to, addon, registraion, markup=None,
             markup = None
          else:
             markup = types.ForceReply(True, text_placeholder)
+      # elif
       else:
          text = f'{formating_text(text)}\n{message_channel(m.from_user.id)}'
          markup = create_buttons('main', '')
@@ -127,13 +136,13 @@ def send(m, text, text_placeholder, user_to, addon, registraion, markup=None,
       db_set(m, 'messages', m.id, '', m.json)
       db_set(m, 'messages', m.id, 'answer_bot', text)
       bot.send_message(m.from_user.id,
-           text,
-           reply_markup=markup,
-           parse_mode=parse_mode)
+                       text,
+                       reply_markup=markup,
+                       parse_mode=parse_mode)
    bot.send_message(chats_with_bot_id,
                     text,
                     reply_markup=markup,
-                    message_thread_id=id_topic,
+                    message_thread_id=id_topic_target(m),
                     parse_mode=parse_mode)
 
 
@@ -188,30 +197,31 @@ def bot_runner():
    @bot.message_handler(func=lambda _message: True, chat_types=['private'])
    def send_message(message):
       id_user = message.from_user.id
-      send(message, f'{check_admin(message)}\n{message.text}', 0, False,
-           'placeholder', True)
-      if db_get('users', id_user,
-                'status') != 'registration_done' and 'wait' not in db_get(
-                    'users', id_user, 'status'):
+      send(message, f'{check_admin(message)}\n{message.text}', 0, False, '',
+           True)
+      status = db_get('users', id_user, 'status')
+      if status != 'registration_done' and 'wait' not in status:
          send(message, db_get('script', 'start_text', ''), 'Название канала',
               True, 'placeholder', True)
          db_set(message, 'status', '', '', 'wait_name_channel')
-      elif 'wait' in db_get('users', id_user, 'status'):
-         if db_get('users', id_user, 'status') == 'wait_name_channel':
+      elif 'wait' in status:
+         if status == 'wait_name_channel':
             send(message, 'Хорошо, теперь скиньте мне вашу ссылку на канал 😌',
                  'Ссылка на канал', True, 'placeholder', True)
             db_set(message, 'status', '', '', 'wait_link_channel')
             db_set(message, 'name_channel', '', '', message.text)
-         elif db_get('users', id_user, 'status') == 'wait_link_channel':
+         elif status == 'wait_link_channel':
             branch_which(message, 'for_link_channel', 'wait_link_top_media',
                          'link_channel', 'Ссылка на канал', 'placeholder')
+         elif status == 'wait_screenshot':
+            send(message, 'давай скрин епта', 'Лучи добра', True, '', False)
          else:
             branch_which(message, 'for_link_top_media', 'registration_done',
                          'link_top_media', 'Ссылка на пост, видео или статью',
                          'buttons')
       else:
-         send(message, 'выберите, чтобы вы хотели посмотреть', 'Лучи добра',
-              True, '', False)
+         send(message, 'выберите, кого бы вы хотели поддержать 🫂',
+              'Лучи добра', True, '', False)
 
    @bot.callback_query_handler(func=lambda _call: True)
    def callback_query_handler(call):
@@ -263,6 +273,7 @@ def bot_runner():
             'в первую очередь🔝. Пожалуйста, после просмотра, пришлите мне скриншот, '\
             'где видно вашу помощь📱') + f'[\\.]({link_top_media})')
          markup = create_buttons('top_media', link_top_media)
+         db_set(call, 'status', '', '', 'wait_screenshot')
 
       bot.edit_message_text(chat_id=call.message.chat.id,
                             message_id=call.message.id,
