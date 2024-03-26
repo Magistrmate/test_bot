@@ -51,7 +51,7 @@ def id_topic_target(m):
               [0x6FB9F0, 0xFFD67E, 0xCB86DB, 0x8EEE98, 0xFF93B2, 0xFB6F5F]))
       id_topic = topic.message_thread_id
       db_set(m, 'id_topic', '', '', id_topic)
-      db_set(m, 'status', '', '', 'link_channel')
+      db_set(m, 'status', '', '', '')
       db_set(m, 'score_help', '', '', 1)
       db_set(m, 'score_support', '', '', 1)
       db_set(m, 'rating', '', '', 1)
@@ -200,7 +200,7 @@ def bot_runner():
       send(message, f'{check_admin(message)}\n{message.text}', 0, False, '',
            True)
       status = db_get('users', id_user, 'status')
-      if status != 'registration_done' and 'wait' not in status:
+      if status == '':
          send(message, db_get('script', 'start_text', ''), 'Название канала',
               True, 'placeholder', True)
          db_set(message, 'status', '', '', 'wait_name_channel')
