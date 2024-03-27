@@ -108,26 +108,14 @@ def send(m,
          text,
          text_placeholder,
          user_to,
-         addon,
-         registraion,
+         status,
          markup=None,
          parse_mode=None):
    if user_to:
       if check_hello(m.from_user.id):
          text = f'Здравствуйте, {m.from_user.first_name}, {text}'
-      elif registraion is False:
-         text = text.capitalize()
-      if registraion:
-         if addon == 'buttons':
-            db_set(m, 'actual_page', '', '', 1)
-            text = f'{formating_text(text)}\n{message_channel(m.from_user.id)}'
-            markup = create_buttons('main', '')
-            parse_mode = 'MarkdownV2'
-         elif addon is None:
-            markup = None
-         else:
-            markup = types.ForceReply(True, text_placeholder)
-      # elif
+      if 'done' not in status:
+         markup = types.ForceReply(True, text_placeholder)
       else:
          text = f'{formating_text(text)}\n{message_channel(m.from_user.id)}'
          markup = create_buttons('main', '')
@@ -135,36 +123,33 @@ def send(m,
 
       db_set(m, 'messages', m.id, '', m.json)
       db_set(m, 'messages', m.id, 'answer_bot', text)
-      bot.send_message(m.from_user.id,
-                       text,
-                       reply_markup=markup,
-                       parse_mode=parse_mode)
+      bot.send_message(m.from_user.id, text, parse_mode, reply_markup=markup)
    bot.send_message(chats_with_bot_id,
                     text,
+                    parse_mode,
                     reply_markup=markup,
-                    message_thread_id=id_topic_target(m),
-                    parse_mode=parse_mode)
+                    message_thread_id=id_topic_target(m))
 
 
-def branch_which(m, branch, status, link, text_placeholder, button):
+def branch_which(m, branch, status, next_status, link, text_placeholder):
    if m.entities is not None:
       if m.entities[0].type == 'url':
          if 'dzen.ru' in m.text:
             send(m, db_get('script', branch, 'success'), text_placeholder,
-                 True, button, True)
+                 True, next_status)
             offset = m.entities[0].offset
             length = m.entities[0].length
             db_set(m, link, '', '', m.text[offset:offset + length])
-            db_set(m, 'status', '', '', status)
+            db_set(m, 'status', '', '', next_status)
          else:
             send(m, db_get('script', 'not_dzen_link', ''), text_placeholder,
-                 True, False, True)
+                 True, status)
       else:
          send(m, db_get('script', branch, 'not_this_entities'),
-              text_placeholder, True, False, True)
+              text_placeholder, True, status)
    else:
       send(m, db_get('script', branch, 'no_entities'), text_placeholder, True,
-           False, True)
+           status)
 
 
 def bot_check():
@@ -197,31 +182,33 @@ def bot_runner():
    @bot.message_handler(func=lambda _message: True, chat_types=['private'])
    def send_message(message):
       id_user = message.from_user.id
-      send(message, f'{check_admin(message)}\n{message.text}', 0, False, '',
-           True)
+      send(message, f'{check_admin(message)}\n{message.text}', '', False, '')
       status = db_get('users', id_user, 'status')
       if status == '':
          send(message, db_get('script', 'start_text', ''), 'Название канала',
-              True, 'placeholder', True)
+              True, status)
          db_set(message, 'status', '', '', 'wait_name_channel')
       elif 'wait' in status:
          if status == 'wait_name_channel':
             send(message, 'Хорошо, теперь скиньте мне вашу ссылку на канал 😌',
-                 'Ссылка на канал', True, 'placeholder', True)
+                 'Ссылка на канал', True, status)
             db_set(message, 'status', '', '', 'wait_link_channel')
             db_set(message, 'name_channel', '', '', message.text)
          elif status == 'wait_link_channel':
-            branch_which(message, 'for_link_channel', 'wait_link_top_media',
-                         'link_channel', 'Ссылка на канал', 'placeholder')
-         elif status == 'wait_screenshot':
-            send(message, 'давай скрин епта', 'Лучи добра', True, '', False)
+            branch_which(message, 'for_link_channel', status,
+                         'wait_link_top_media', 'link_channel',
+                         'Ссылка на канал')
+         elif status == 'wait_link_top_media':
+            db_set(message, 'actual_page', '', '', 1)
+            branch_which(message, 'for_link_top_media', status,
+                         'registration_done', 'link_top_media',
+                         'Ссылка на пост, видео или статью')
          else:
-            branch_which(message, 'for_link_top_media', 'registration_done',
-                         'link_top_media', 'Ссылка на пост, видео или статью',
-                         'buttons')
+            send(message, 'Ожидаю скриншот с твоей помощью каналу 🙂',
+                 'Нажми на скрепку и т.д.', True, status)
       else:
          send(message, 'выберите, кого бы вы хотели поддержать 🫂',
-              'Лучи добра', True, '', False)
+              'Лучи добра', True, status)
 
    @bot.callback_query_handler(func=lambda _call: True)
    def callback_query_handler(call):
@@ -280,6 +267,12 @@ def bot_runner():
                             text=text,
                             reply_markup=markup,
                             parse_mode='MarkdownV2')
+
+   @bot.message_handler(func=lambda _message: True, content_types=['photo'])
+   def photo_handler(photo):
+      send(photo, 'красава',
+           '', True, 'sent_photo')
+      db_set(photo, 'status', '', '', 'screenshot_done')
 
    bot.infinity_polling(none_stop=True)
 

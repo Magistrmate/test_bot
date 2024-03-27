@@ -1,2 +1,5 @@
 registration
 1. 'wait_name_channel'
+2. 'wait_link_channel'
+3. 'wait_link_top_media'
+4. 'registration_done'
