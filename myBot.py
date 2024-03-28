@@ -76,6 +76,11 @@ def create_buttons(form, link):
       button1 = types.InlineKeyboardButton('Возврат ↩',
                                            callback_data='back_to_main')
       create_markup.row(button1)
+   elif form == 'bot':
+      button1 = types.InlineKeyboardButton('Соглы', callback_data='yes')
+      button2 = types.InlineKeyboardButton('Чо за..', callback_data='no')
+      create_markup.row(button1, button2)
+
    else:
       button1 = types.InlineKeyboardButton('   Перейти оставить лайк 👍 и '\
                                            'комментарий 💬   ',  link)
@@ -104,13 +109,7 @@ def message_channel(user_id):
        f'в рейтинге из {quantity} каналов') + f'[\\.]({link_channel})'
 
 
-def send(m,
-         text,
-         text_placeholder,
-         user_to,
-         status,
-         markup=None,
-         parse_mode=None):
+def send(m, text, text_placeholder, user_to, status, markup, parse_mode=None):
    if user_to:
       if check_hello(m.from_user.id):
          text = f'Здравствуйте, {m.from_user.first_name}, {text}'
@@ -136,20 +135,20 @@ def branch_which(m, branch, status, next_status, link, text_placeholder):
       if m.entities[0].type == 'url':
          if 'dzen.ru' in m.text:
             send(m, db_get('script', branch, 'success'), text_placeholder,
-                 True, next_status)
+                 True, next_status, None)
             offset = m.entities[0].offset
             length = m.entities[0].length
             db_set(m, link, '', '', m.text[offset:offset + length])
             db_set(m, 'status', '', '', next_status)
          else:
             send(m, db_get('script', 'not_dzen_link', ''), text_placeholder,
-                 True, status)
+                 True, status, None)
       else:
          send(m, db_get('script', branch, 'not_this_entities'),
-              text_placeholder, True, status)
+              text_placeholder, True, status, None)
    else:
       send(m, db_get('script', branch, 'no_entities'), text_placeholder, True,
-           status)
+           status, None)
 
 
 def bot_check():
@@ -182,16 +181,17 @@ def bot_runner():
    @bot.message_handler(func=lambda _message: True, chat_types=['private'])
    def send_message(message):
       id_user = message.from_user.id
-      send(message, f'{check_admin(message)}\n{message.text}', '', False, '')
+      send(message, f'{check_admin(message)}\n{message.text}', '', False, '',
+           None)
       status = db_get('users', id_user, 'status')
       if status == '':
          send(message, db_get('script', 'start_text', ''), 'Название канала',
-              True, status)
+              True, status, None)
          db_set(message, 'status', '', '', 'wait_name_channel')
       elif 'wait' in status:
          if status == 'wait_name_channel':
             send(message, 'Хорошо, теперь скиньте мне вашу ссылку на канал 😌',
-                 'Ссылка на канал', True, status)
+                 'Ссылка на канал', True, status, None)
             db_set(message, 'status', '', '', 'wait_link_channel')
             db_set(message, 'name_channel', '', '', message.text)
          elif status == 'wait_link_channel':
@@ -205,74 +205,89 @@ def bot_runner():
                          'Ссылка на пост, видео или статью')
          else:
             send(message, 'Ожидаю скриншот с твоей помощью каналу 🙂',
-                 'Нажми на скрепку и т.д.', True, status)
+                 'Нажми на скрепку и т.д.', True, status, None)
       else:
          send(message, 'выберите, кого бы вы хотели поддержать 🫂',
-              'Лучи добра', True, status)
+              'Лучи добра', True, status, None)
 
    @bot.callback_query_handler(func=lambda _call: True)
-   def callback_query_handler(call):
-      send(call, f'*Нажал на кнопку {call.data}*', '', False, '', False)
-      actual_page = db.reference(
-          f'users/{call.from_user.id}/actual_page').get()
-      markup = create_buttons('main', '')
-      text = ''
-      if call.data == 'next' or call.data == 'back' or call.data == 'back_to_main':
-         quantity = len(db.reference('users').get())
-         if call.data != 'back_to_main':
-            if call.data == 'next':
-               if actual_page == quantity:
-                  actual_page = 1
-               else:
-                  actual_page = actual_page + 1  #type: ignore
-            else:
-               if actual_page == 1:
-                  actual_page = quantity
-               else:
-                  actual_page = actual_page - 1  #type: ignore
-            db_set(call, 'actual_page', '', '', actual_page)
-         text = message_channel(call.from_user.id)
+   def callback_query_handler(call, text=''):
+      if call.message.message_thread_id is None:
+         actual_page = db.reference(
+             f'users/{call.from_user.id}/actual_page').get()
          markup = create_buttons('main', '')
-      elif call.data == 'rate_channels':
-         i = 1
-         for user_id in list(
-             reversed(db.reference('users').order_by_child('rating').get())):
-            name_channel = db.reference(f'users/{user_id}/name_channel').get()
-            link_channel = db.reference(f'users/{user_id}/link_channel').get()
-            rating = db.reference(f'users/{user_id}/rating').get()
-            score_help = db.reference(f'users/{user_id}/score_help').get()
-            score_support = db.reference(
-                f'users/{user_id}/score_support').get()
-            text = text + formating_text(f'{i} #️⃣') + \
-            f' [{name_channel}]({link_channel}) ' + \
-            formating_text(f'{score_support} 🫂 {score_help} 🙏 {rating} 🌟\n')
-            i = i + 1
-         text = f'ТОП 10 каналов 📊\n{text}'
-         markup = create_buttons('top', '')
-      elif call.data == 'support_channel':
-         actual_user_id = list(
-             db.reference('users').order_by_child('rating').limit_to_last(
-                 actual_page).get())[0]
-         link_top_media = db.reference(
-             f'users/{actual_user_id}/link_top_media').get()
-         text = (formating_text(
-            'Вот материал с канала, который автор хотел бы продвигать '\
-            'в первую очередь🔝. Пожалуйста, после просмотра, пришлите мне скриншот, '\
-            'где видно вашу помощь📱') + f'[\\.]({link_top_media})')
-         markup = create_buttons('top_media', link_top_media)
-         db_set(call, 'status', '', '', 'wait_screenshot')
-
-      bot.edit_message_text(chat_id=call.message.chat.id,
-                            message_id=call.message.id,
-                            text=text,
-                            reply_markup=markup,
-                            parse_mode='MarkdownV2')
+         if call.data == 'next' or call.data == 'back' or call.data == 'back_to_main':
+            quantity = len(db.reference('users').get())
+            if call.data != 'back_to_main':
+               if call.data == 'next':
+                  if actual_page == quantity:
+                     actual_page = 1
+                  else:
+                     actual_page = actual_page + 1  #type: ignore
+               else:
+                  if actual_page == 1:
+                     actual_page = quantity
+                  else:
+                     actual_page = actual_page - 1  #type: ignore
+               db_set(call, 'actual_page', '', '', actual_page)
+            text = message_channel(call.from_user.id)
+            markup = create_buttons('main', '')
+         elif call.data == 'rate_channels':
+            i = 1
+            for user_id in list(
+                reversed(db.reference('users').order_by_child('rating').get())):
+               name_channel = db.reference(f'users/{user_id}/name_channel').get()
+               link_channel = db.reference(f'users/{user_id}/link_channel').get()
+               rating = db.reference(f'users/{user_id}/rating').get()
+               score_help = db.reference(f'users/{user_id}/score_help').get()
+               score_support = db.reference(
+                   f'users/{user_id}/score_support').get()
+               text = text + formating_text(f'{i} #️⃣') + \
+               f' [{name_channel}]({link_channel}) ' + \
+               formating_text(f'{score_support} 🫂 {score_help} 🙏 {rating} 🌟\n')
+               i = i + 1
+            text = f'ТОП 10 каналов 📊\n{text}'
+            markup = create_buttons('top', '')
+         elif call.data == 'support_channel':
+            actual_user_id = list(
+                db.reference('users').order_by_child('rating').limit_to_last(
+                    actual_page).get())[0]
+            link_top_media = db.reference(
+                f'users/{actual_user_id}/link_top_media').get()
+            text = formating_text(db_get(
+                'script', '', 'text_to_boost')) + f'[\\.]({link_top_media})'
+            markup = create_buttons('top_media', link_top_media)
+            db_set(call, 'status', '', '', 'wait_screenshot')
+         send(call, f'{check_admin(call)}\n*Нажал на кнопку {call.data}*', '',
+              False, '', None)
+         send(call, text, '', False, '', markup)
+         bot.edit_message_text(text,
+                               call.message.chat.id,
+                               call.message.id,
+                               reply_markup=markup,
+                               parse_mode='MarkdownV2')
+      else:
+         if call.data == 'yes':
+            print('ok')
+         else:
+            print('ne ok')
 
    @bot.message_handler(func=lambda _message: True, content_types=['photo'])
    def photo_handler(photo):
-      send(photo, 'красава',
-           '', True, 'sent_photo')
       db_set(photo, 'status', '', '', 'screenshot_done')
+      bot.send_photo(chats_with_bot_id,
+                     photo.photo[-1].file_id,
+                     message_thread_id=id_topic_target(photo),
+                     caption=f'{check_admin(photo)}\n{photo.caption}')
+      send(photo, db_get('script', '', 'after_help'), '', True,
+           'registration_done', None)
+
+      send(photo, 'Всё ок, модератор?', '', False, '',
+           create_buttons('bot', ''))
+
+   @bot.message_handler(func=lambda _message: True, chat_types=['supergroup'])
+   def message_handler(message):
+      print(message.text)
 
    bot.infinity_polling(none_stop=True)
 
