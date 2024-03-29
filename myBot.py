@@ -3,6 +3,7 @@ import os
 import random
 import threading
 import time
+import emojipy
 
 import firebase_admin
 import telebot
@@ -60,7 +61,7 @@ def id_topic_target(m):
    return id_topic
 
 
-def create_buttons(form, link):
+def create_buttons(form, link, pin):
    create_markup = types.InlineKeyboardMarkup()
    if form == 'main':
       button1 = types.InlineKeyboardButton('⬆ Поддержать этот канал ❤',
@@ -76,9 +77,10 @@ def create_buttons(form, link):
       button1 = types.InlineKeyboardButton('Возврат ↩',
                                            callback_data='back_to_main')
       create_markup.row(button1)
-   elif form == 'bot':
-      button1 = types.InlineKeyboardButton('Соглы', callback_data='yes')
-      button2 = types.InlineKeyboardButton('Чо за..', callback_data='no')
+   elif form == 'moder_question':
+      button1 = types.InlineKeyboardButton(f'Acceptance {link}', 
+                                           callback_data='acceptance')
+      button2 = types.InlineKeyboardButton(f'Rejection {pin}', callback_data='rejection')
       create_markup.row(button1, button2)
 
    else:
@@ -117,7 +119,7 @@ def send(m, text, text_placeholder, user_to, status, markup, parse_mode=None):
          markup = types.ForceReply(True, text_placeholder)
       else:
          text = f'{formating_text(text)}\n{message_channel(m.from_user.id)}'
-         markup = create_buttons('main', '')
+         markup = create_buttons('main', '', '')
          parse_mode = 'MarkdownV2'
 
       db_set(m, 'messages', m.id, '', m.json)
@@ -210,84 +212,89 @@ def bot_runner():
          send(message, 'выберите, кого бы вы хотели поддержать 🫂',
               'Лучи добра', True, status, None)
 
-   @bot.callback_query_handler(func=lambda _call: True)
+   @bot.callback_query_handler(
+       func=lambda _call: _call.message.chat.type == 'private')
    def callback_query_handler(call, text=''):
-      if call.message.message_thread_id is None:
-         actual_page = db.reference(
-             f'users/{call.from_user.id}/actual_page').get()
-         markup = create_buttons('main', '')
-         if call.data == 'next' or call.data == 'back' or call.data == 'back_to_main':
-            quantity = len(db.reference('users').get())
-            if call.data != 'back_to_main':
-               if call.data == 'next':
-                  if actual_page == quantity:
-                     actual_page = 1
-                  else:
-                     actual_page = actual_page + 1  #type: ignore
+      actual_page = db.reference(
+          f'users/{call.from_user.id}/actual_page').get()
+      markup = create_buttons('main', '', '')
+      if call.data == 'next' or call.data == 'back' or call.data == 'back_to_main':
+         quantity = len(db.reference('users').get())
+         if call.data != 'back_to_main':
+            if call.data == 'next':
+               if actual_page == quantity:
+                  actual_page = 1
                else:
-                  if actual_page == 1:
-                     actual_page = quantity
-                  else:
-                     actual_page = actual_page - 1  #type: ignore
-               db_set(call, 'actual_page', '', '', actual_page)
-            text = message_channel(call.from_user.id)
-            markup = create_buttons('main', '')
-         elif call.data == 'rate_channels':
-            i = 1
-            for user_id in list(
-                reversed(db.reference('users').order_by_child('rating').get())):
-               name_channel = db.reference(f'users/{user_id}/name_channel').get()
-               link_channel = db.reference(f'users/{user_id}/link_channel').get()
-               rating = db.reference(f'users/{user_id}/rating').get()
-               score_help = db.reference(f'users/{user_id}/score_help').get()
-               score_support = db.reference(
-                   f'users/{user_id}/score_support').get()
-               text = text + formating_text(f'{i} #️⃣') + \
-               f' [{name_channel}]({link_channel}) ' + \
-               formating_text(f'{score_support} 🫂 {score_help} 🙏 {rating} 🌟\n')
-               i = i + 1
-            text = f'ТОП 10 каналов 📊\n{text}'
-            markup = create_buttons('top', '')
-         elif call.data == 'support_channel':
-            actual_user_id = list(
-                db.reference('users').order_by_child('rating').limit_to_last(
-                    actual_page).get())[0]
-            link_top_media = db.reference(
-                f'users/{actual_user_id}/link_top_media').get()
-            text = formating_text(db_get(
-                'script', '', 'text_to_boost')) + f'[\\.]({link_top_media})'
-            markup = create_buttons('top_media', link_top_media)
-            db_set(call, 'status', '', '', 'wait_screenshot')
-         send(call, f'{check_admin(call)}\n*Нажал на кнопку {call.data}*', '',
-              False, '', None)
-         send(call, text, '', False, '', markup)
-         bot.edit_message_text(text,
-                               call.message.chat.id,
-                               call.message.id,
-                               reply_markup=markup,
-                               parse_mode='MarkdownV2')
+                  actual_page = actual_page + 1  #type: ignore
+            else:
+               if actual_page == 1:
+                  actual_page = quantity
+               else:
+                  actual_page = actual_page - 1  #type: ignore
+            db_set(call, 'actual_page', '', '', actual_page)
+         text = message_channel(call.from_user.id)
+         markup = create_buttons('main', '', '')
+      elif call.data == 'rate_channels':
+         i = 1
+         for user_id in list(
+             reversed(db.reference('users').order_by_child('rating').get())):
+            name_channel = db.reference(f'users/{user_id}/name_channel').get()
+            link_channel = db.reference(f'users/{user_id}/link_channel').get()
+            rating = db.reference(f'users/{user_id}/rating').get()
+            score_help = db.reference(f'users/{user_id}/score_help').get()
+            score_support = db.reference(
+                f'users/{user_id}/score_support').get()
+            text = text + formating_text(f'{i} #️⃣') + \
+            f' [{name_channel}]({link_channel}) ' + \
+            formating_text(f'{score_support} 🫂 {score_help} 🙏 {rating} 🌟\n')
+            i = i + 1
+         text = f'ТОП 10 каналов 📊\n{text}'
+         markup = create_buttons('top', '', '')
+      elif call.data == 'support_channel':
+         actual_user_id = list(
+             db.reference('users').order_by_child('rating').limit_to_last(
+                 actual_page).get())[0]
+         link_top_media = db.reference(
+             f'users/{actual_user_id}/link_top_media').get()
+         text = formating_text(db_get(
+             'script', '', 'text_to_boost')) + f'[\\.]({link_top_media})'
+         markup = create_buttons('top_media', link_top_media, '')
+         db_set(call, 'status', '', '', 'wait_screenshot')
+      send(call, f'{check_admin(call)}\n*Нажал на кнопку {call.data}*', '',
+           False, '', None)
+      send(call, text, '', False, '', markup)
+      bot.edit_message_text(text,
+                            call.message.chat.id,
+                            call.message.id,
+                            reply_markup=markup,
+                            parse_mode='MarkdownV2')
+
+   @bot.callback_query_handler(
+       func=lambda _call: _call.message.chat.type == 'supergroup')
+   def callback_query(call):
+      if call.data == 'acceptance':
+         bot.unpin_chat_message(call.message.chat.id, call.message.id)
+         emojipy.
+         create_buttons('moder_question', '', '')
+         print('ok')
       else:
-         if call.data == 'yes':
-            print('ok')
-         else:
-            print('ne ok')
+         print('ne ok')
 
    @bot.message_handler(func=lambda _message: True, content_types=['photo'])
    def photo_handler(photo):
       db_set(photo, 'status', '', '', 'screenshot_done')
-      bot.send_photo(chats_with_bot_id,
+      sent = bot.send_photo(chats_with_bot_id,
                      photo.photo[-1].file_id,
+                     f'{check_admin(photo)}\n{photo.caption}',
                      message_thread_id=id_topic_target(photo),
-                     caption=f'{check_admin(photo)}\n{photo.caption}')
+                     reply_markup=create_buttons('moder_question', '', ''))
       send(photo, db_get('script', '', 'after_help'), '', True,
            'registration_done', None)
+      bot.pin_chat_message(chats_with_bot_id, sent.message_id)
 
-      send(photo, 'Всё ок, модератор?', '', False, '',
-           create_buttons('bot', ''))
-
-   @bot.message_handler(func=lambda _message: True, chat_types=['supergroup'])
-   def message_handler(message):
-      print(message.text)
+   @bot.message_handler(content_types=['pinned_message'])
+   def message_handler(notification):
+      bot.delete_message(notification.chat.id, notification.message_id)
 
    bot.infinity_polling(none_stop=True)
 
