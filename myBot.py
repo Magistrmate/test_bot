@@ -3,7 +3,7 @@ import os
 import random
 import threading
 import time
-import emojipy
+from random_unicode_emoji import random_emoji
 
 import firebase_admin
 import telebot
@@ -78,9 +78,10 @@ def create_buttons(form, link, pin):
                                            callback_data='back_to_main')
       create_markup.row(button1)
    elif form == 'moder_question':
-      button1 = types.InlineKeyboardButton(f'Acceptance {link}', 
+      button1 = types.InlineKeyboardButton(f'{link} Acceptance',
                                            callback_data='acceptance')
-      button2 = types.InlineKeyboardButton(f'Rejection {pin}', callback_data='rejection')
+      button2 = types.InlineKeyboardButton(f'{pin} Rejection',
+                                           callback_data='rejection')
       create_markup.row(button1, button2)
 
    else:
@@ -274,20 +275,23 @@ def bot_runner():
    def callback_query(call):
       if call.data == 'acceptance':
          bot.unpin_chat_message(call.message.chat.id, call.message.id)
-         emojipy.
-         create_buttons('moder_question', '', '')
-         print('ok')
+         markup = create_buttons('moder_question', random_emoji()[0], '')
+         
       else:
-         print('ne ok')
+         markup = create_buttons('moder_question', '', random_emoji()[0])
+      bot.edit_message_reply_markup(call.message.chat.id,
+                                    call.message.id,
+                                    reply_markup=markup)
 
    @bot.message_handler(func=lambda _message: True, content_types=['photo'])
    def photo_handler(photo):
       db_set(photo, 'status', '', '', 'screenshot_done')
       sent = bot.send_photo(chats_with_bot_id,
-                     photo.photo[-1].file_id,
-                     f'{check_admin(photo)}\n{photo.caption}',
-                     message_thread_id=id_topic_target(photo),
-                     reply_markup=create_buttons('moder_question', '', ''))
+                            photo.photo[-1].file_id,
+                            f'{check_admin(photo)}\n{photo.caption}',
+                            message_thread_id=id_topic_target(photo),
+                            reply_markup=create_buttons(
+                                'moder_question', '', ''))
       send(photo, db_get('script', '', 'after_help'), '', True,
            'registration_done', None)
       bot.pin_chat_message(chats_with_bot_id, sent.message_id)
