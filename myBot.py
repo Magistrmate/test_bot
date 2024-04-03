@@ -161,6 +161,8 @@ def bot_check():
 def check_admin(m):
    if m.from_user.id == int(os.environ['MY_ID']):
       username = 'Админ'
+   elif m.from_user.username is None:
+      username = m.from_user.first_name
    else:
       username = f'@{m.from_user.username}'
    return username
@@ -276,6 +278,11 @@ def bot_runner():
       if call.data == 'acceptance':
          bot.unpin_chat_message(call.message.chat.id, call.message.id)
          markup = create_buttons('moder_question', random_emoji()[0], '')
+         id_to_user = list(db.reference('users').order_by_child('id_topic').equal_to(
+                       call.message.message_thread_id).get())[0]
+         bot.send_message(id_to_user, 'красава')
+         score_support = db.reference(f'users/{id_to_user}/score_support').get()
+         db.reference(f'users/{id_to_user}/score_support').set(score_support + 1) #type: ignore
          
       else:
          markup = create_buttons('moder_question', '', random_emoji()[0])
