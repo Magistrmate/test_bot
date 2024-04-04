@@ -263,6 +263,10 @@ def bot_runner():
              'script', '', 'text_to_boost')) + f'[\\.]({link_top_media})'
          markup = create_buttons('top_media', link_top_media, '')
          db_set(call, 'status', '', '', 'wait_screenshot')
+         id_user_supporting = list(
+             db.reference('users').order_by_child('link_channel').equal_to(
+                 call.message.entities[0].url).get())[0]
+         db_set(call, 'support_channel', '', '', id_user_supporting)
       send(call, f'{check_admin(call)}\n*Нажал на кнопку {call.data}*', '',
            False, '', None)
       send(call, text, '', False, '', markup)
@@ -278,12 +282,22 @@ def bot_runner():
       if call.data == 'acceptance':
          bot.unpin_chat_message(call.message.chat.id, call.message.id)
          markup = create_buttons('moder_question', random_emoji()[0], '')
-         id_to_user = list(db.reference('users').order_by_child('id_topic').equal_to(
-                       call.message.message_thread_id).get())[0]
+         id_to_user = list(
+             db.reference('users').order_by_child('id_topic').equal_to(
+                 call.message.message_thread_id).get())[0]
          bot.send_message(id_to_user, 'красава')
-         score_support = db.reference(f'users/{id_to_user}/score_support').get()
-         db.reference(f'users/{id_to_user}/score_support').set(score_support + 1) #type: ignore
-         
+         score_support = db.reference(
+             f'users/{id_to_user}/score_support').get()
+         db.reference(f'users/{id_to_user}/score_support').set(
+             score_support + 1)  #type: ignore
+         offset = call.message.caption_entities[0].offset
+         length = call.message.caption_entities[0].length
+         user_id_help = call.message.caption[offset:offset + length]
+         bot.send_message(user_id_help, 'Тебе очко помощи 🙏')
+         score_help = db.reference(f'users/{user_id_help}/score_help').get()
+         db.reference(f'users/{user_id_help}/score_help').set(
+            score_help + 1) #type: ignore
+
       else:
          markup = create_buttons('moder_question', '', random_emoji()[0])
       bot.edit_message_reply_markup(call.message.chat.id,
@@ -293,12 +307,14 @@ def bot_runner():
    @bot.message_handler(func=lambda _message: True, content_types=['photo'])
    def photo_handler(photo):
       db_set(photo, 'status', '', '', 'screenshot_done')
-      sent = bot.send_photo(chats_with_bot_id,
-                            photo.photo[-1].file_id,
-                            f'{check_admin(photo)}\n{photo.caption}',
-                            message_thread_id=id_topic_target(photo),
-                            reply_markup=create_buttons(
-                                'moder_question', '', ''))
+      support_channel = db_get('users', photo.from_user.id, 'support_channel')
+      sent = bot.send_photo(
+          chats_with_bot_id,
+          photo.photo[-1].file_id,
+          f'{check_admin(photo)}\n{photo.caption}\n||{support_channel}||',
+          'MarkdownV2',
+          message_thread_id=id_topic_target(photo),
+          reply_markup=create_buttons('moder_question', '', ''))
       send(photo, db_get('script', '', 'after_help'), '', True,
            'registration_done', None)
       bot.pin_chat_message(chats_with_bot_id, sent.message_id)
