@@ -70,9 +70,14 @@ def create_buttons(form, link, pin):
       button3 = types.InlineKeyboardButton('Далее ➡', callback_data='next')
       button4 = types.InlineKeyboardButton('ТОП 10 каналов 📊',
                                            callback_data='rate_channels')
+      button5 = types.InlineKeyboardButton('Ваш канал 🌠',
+                                           callback_data='self_channel')
+      button6 = types.InlineKeyboardButton('Что к чему 💁‍♂', callback_data='help')
+
       create_markup.row(button1)
       create_markup.row(button2, button3)
       create_markup.row(button4)
+      create_markup.row(button5, button6)
    elif form == 'top':
       button1 = types.InlineKeyboardButton('Возврат ↩',
                                            callback_data='back_to_main')
@@ -83,7 +88,6 @@ def create_buttons(form, link, pin):
       button2 = types.InlineKeyboardButton(f'{pin} Rejection',
                                            callback_data='rejection')
       create_markup.row(button1, button2)
-
    else:
       button1 = types.InlineKeyboardButton('   Перейти оставить лайк 👍 и '\
                                            'комментарий 💬   ',  link)
@@ -94,12 +98,34 @@ def create_buttons(form, link, pin):
    return create_markup
 
 
-def message_channel(user_id):
-   actual_page = db.reference(f'users/{user_id}/actual_page').get()
+def message_channel(c):
+   
+   actual_page = db.reference(f'users/{c.from_user.id}/actual_page').get()
    quantity = len(db.reference('users').get())
    top_user_id = list(
        db.reference('users').order_by_child('rating').limit_to_last(
            actual_page).get())[0]
+   if c.from_user.id == int(top_user_id):
+      try:
+         if c.data != 'self_channel':
+            if c.data == 'next':
+               actual_page = actual_page + 1  #type: ignore
+               if actual_page > quantity:
+                  actual_page = 1
+            else:
+               actual_page = actual_page - 1  #type: ignore
+               if actual_page == 0:
+                  actual_page = quantity
+            db_set(c, 'actual_page', '', '', actual_page)
+            top_user_id = list(
+                db.reference('users').order_by_child('rating').limit_to_last(
+                    actual_page).get())[0]
+         else:
+            top_user_id = c.from_user.id
+      except AttributeError:
+         actual_page = actual_page + 1  #type: ignore
+         if actual_page > quantity:
+            actual_page = 1
    name_channel = db.reference(f'users/{top_user_id}/name_channel').get()
    link_channel = db.reference(f'users/{top_user_id}/link_channel').get()
    rating = db.reference(f'users/{top_user_id}/rating').get()
@@ -119,10 +145,9 @@ def send(m, text, text_placeholder, user_to, status, markup, parse_mode=None):
       if 'done' not in status:
          markup = types.ForceReply(True, text_placeholder)
       else:
-         text = f'{formating_text(text)}\n{message_channel(m.from_user.id)}'
+         text = f'{formating_text(text)}\n{message_channel(m)}'
          markup = create_buttons('main', '', '')
          parse_mode = 'MarkdownV2'
-
       db_set(m, 'messages', m.id, '', m.json)
       db_set(m, 'messages', m.id, 'answer_bot', text)
       bot.send_message(m.from_user.id, text, parse_mode, reply_markup=markup)
@@ -235,13 +260,17 @@ def bot_runner():
                else:
                   actual_page = actual_page - 1  #type: ignore
             db_set(call, 'actual_page', '', '', actual_page)
-         text = message_channel(call.from_user.id)
+         text = message_channel(call)
          markup = create_buttons('main', '', '')
       elif call.data == 'rate_channels':
          i = 1
          for user_id in list(
              reversed(db.reference('users').order_by_child('rating').get())):
-            name_channel = db.reference(f'users/{user_id}/name_channel').get()
+            if int(user_id) == call.from_user.id:
+               name_channel = 'Ваш канал'
+            else:
+               name_channel = db.reference(
+                   f'users/{user_id}/name_channel').get()
             link_channel = db.reference(f'users/{user_id}/link_channel').get()
             rating = db.reference(f'users/{user_id}/rating').get()
             score_help = db.reference(f'users/{user_id}/score_help').get()
@@ -267,6 +296,9 @@ def bot_runner():
              db.reference('users').order_by_child('link_channel').equal_to(
                  call.message.entities[0].url).get())[0]
          db_set(call, 'support_channel', '', '', id_user_supporting)
+      elif call.data == 'self_channel':
+         text = message_channel(call)
+         markup = create_buttons('top', '', '')
       send(call, f'{check_admin(call)}\n*Нажал на кнопку {call.data}*', '',
            False, '', None)
       send(call, text, '', False, '', markup)
@@ -295,8 +327,8 @@ def bot_runner():
          user_id_help = call.message.caption[offset:offset + length]
          bot.send_message(user_id_help, 'Тебе очко помощи 🙏')
          score_help = db.reference(f'users/{user_id_help}/score_help').get()
-         db.reference(f'users/{user_id_help}/score_help').set(
-            score_help + 1) #type: ignore
+         db.reference(f'users/{user_id_help}/score_help').set(score_help +
+                                                              1)  #type: ignore
 
       else:
          markup = create_buttons('moder_question', '', random_emoji()[0])
