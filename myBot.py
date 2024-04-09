@@ -3,11 +3,11 @@ import os
 import random
 import threading
 import time
-from random_unicode_emoji import random_emoji
 
 import firebase_admin
 import telebot
 from firebase_admin import credentials, db  # type: ignore
+from random_unicode_emoji import random_emoji
 from telebot import types
 
 cred = credentials.Certificate(json.loads(os.environ['KEY']))
@@ -72,7 +72,8 @@ def create_buttons(form, link, pin):
                                            callback_data='rate_channels')
       button5 = types.InlineKeyboardButton('Ваш канал 🌠',
                                            callback_data='self_channel')
-      button6 = types.InlineKeyboardButton('Что к чему 💁‍♂', callback_data='help')
+      button6 = types.InlineKeyboardButton('Что к чему 💁‍♂',
+                                           callback_data='help')
 
       create_markup.row(button1)
       create_markup.row(button2, button3)
@@ -98,16 +99,24 @@ def create_buttons(form, link, pin):
    return create_markup
 
 
-def message_channel(c):
-   
+def message_channel(c, from_to_back):
    actual_page = db.reference(f'users/{c.from_user.id}/actual_page').get()
    quantity = len(db.reference('users').get())
    top_user_id = list(
        db.reference('users').order_by_child('rating').limit_to_last(
            actual_page).get())[0]
    if c.from_user.id == int(top_user_id):
-      try:
-         if c.data != 'self_channel':
+      actual_page = actual_page + 1  #type: ignore
+      if actual_page > quantity:
+         actual_page = 1
+      top_user_id = list(
+          db.reference('users').order_by_child(
+              'rating').limit_to_last(actual_page).get())[0] 
+   else:
+      if from_to_back:
+         if c.data == 'self_channel':
+            top_user_id = c.from_user.id
+         else:
             if c.data == 'next':
                actual_page = actual_page + 1  #type: ignore
                if actual_page > quantity:
@@ -116,16 +125,10 @@ def message_channel(c):
                actual_page = actual_page - 1  #type: ignore
                if actual_page == 0:
                   actual_page = quantity
-            db_set(c, 'actual_page', '', '', actual_page)
             top_user_id = list(
-                db.reference('users').order_by_child('rating').limit_to_last(
-                    actual_page).get())[0]
-         else:
-            top_user_id = c.from_user.id
-      except AttributeError:
-         actual_page = actual_page + 1  #type: ignore
-         if actual_page > quantity:
-            actual_page = 1
+                db.reference('users').order_by_child(
+                    'rating').limit_to_last(actual_page).get())[0]
+   db_set(c, 'actual_page', '', '', actual_page)
    name_channel = db.reference(f'users/{top_user_id}/name_channel').get()
    link_channel = db.reference(f'users/{top_user_id}/link_channel').get()
    rating = db.reference(f'users/{top_user_id}/rating').get()
@@ -145,7 +148,7 @@ def send(m, text, text_placeholder, user_to, status, markup, parse_mode=None):
       if 'done' not in status:
          markup = types.ForceReply(True, text_placeholder)
       else:
-         text = f'{formating_text(text)}\n{message_channel(m)}'
+         text = f'{formating_text(text)}\n{message_channel(m, False)}'
          markup = create_buttons('main', '', '')
          parse_mode = 'MarkdownV2'
       db_set(m, 'messages', m.id, '', m.json)
@@ -260,7 +263,7 @@ def bot_runner():
                else:
                   actual_page = actual_page - 1  #type: ignore
             db_set(call, 'actual_page', '', '', actual_page)
-         text = message_channel(call)
+         text = message_channel(call, True)
          markup = create_buttons('main', '', '')
       elif call.data == 'rate_channels':
          i = 1
@@ -297,7 +300,7 @@ def bot_runner():
                  call.message.entities[0].url).get())[0]
          db_set(call, 'support_channel', '', '', id_user_supporting)
       elif call.data == 'self_channel':
-         text = message_channel(call)
+         text = message_channel(call, True)
          markup = create_buttons('top', '', '')
       send(call, f'{check_admin(call)}\n*Нажал на кнопку {call.data}*', '',
            False, '', None)
