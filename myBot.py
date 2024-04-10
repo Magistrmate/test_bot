@@ -80,6 +80,10 @@ def create_buttons(form, link, pin):
       create_markup.row(button4)
       create_markup.row(button5, button6)
    elif form == 'top':
+      if link == 'change_link':
+         button1 = types.InlineKeyboardButton('Меняем ссыль',
+                                              callback_data='change_link')
+         create_markup.row(button1)
       button1 = types.InlineKeyboardButton('Возврат ↩',
                                            callback_data='back_to_main')
       create_markup.row(button1)
@@ -110,24 +114,11 @@ def message_channel(c, from_to_back):
       if actual_page > quantity:
          actual_page = 1
       top_user_id = list(
-          db.reference('users').order_by_child(
-              'rating').limit_to_last(actual_page).get())[0] 
+          db.reference('users').order_by_child('rating').limit_to_last(
+              actual_page).get())[0]
    else:
-      if from_to_back:
-         if c.data == 'self_channel':
-            top_user_id = c.from_user.id
-         else:
-            if c.data == 'next':
-               actual_page = actual_page + 1  #type: ignore
-               if actual_page > quantity:
-                  actual_page = 1
-            else:
-               actual_page = actual_page - 1  #type: ignore
-               if actual_page == 0:
-                  actual_page = quantity
-            top_user_id = list(
-                db.reference('users').order_by_child(
-                    'rating').limit_to_last(actual_page).get())[0]
+      if from_to_back and c.data == 'self_channel':
+         top_user_id = c.from_user.id
    db_set(c, 'actual_page', '', '', actual_page)
    name_channel = db.reference(f'users/{top_user_id}/name_channel').get()
    link_channel = db.reference(f'users/{top_user_id}/link_channel').get()
@@ -236,6 +227,7 @@ def bot_runner():
             branch_which(message, 'for_link_top_media', status,
                          'registration_done', 'link_top_media',
                          'Ссылка на пост, видео или статью')
+            db_set(message, 'time_change_link', '', '', message.date)
          else:
             send(message, 'Ожидаю скриншот с твоей помощью каналу 🙂',
                  'Нажми на скрепку и т.д.', True, status, None)
@@ -301,7 +293,15 @@ def bot_runner():
          db_set(call, 'support_channel', '', '', id_user_supporting)
       elif call.data == 'self_channel':
          text = message_channel(call, True)
-         markup = create_buttons('top', '', '')
+         markup = create_buttons('top', 'change_link', '')
+      elif call.data == 'change_link':
+         if time.time() - db_get('users', call.from_user.id,
+                   'time_change_link') >= 86400:
+            text = 'На какую ссылку замена?'
+            markup = create_buttons('top', 'change_link', '')
+         else:
+            text = 'время ещё не пришло'
+            markup = create_buttons('top', 'change_link', '')
       send(call, f'{check_admin(call)}\n*Нажал на кнопку {call.data}*', '',
            False, '', None)
       send(call, text, '', False, '', markup)
