@@ -142,8 +142,9 @@ def send(m, text, text_placeholder, user_to, status, markup, parse_mode=None):
          text = f'{formating_text(text)}\n{message_channel(m, False)}'
          markup = create_buttons('main', '', '')
          parse_mode = 'MarkdownV2'
-      db_set(m, 'messages', m.id, '', m.json)
-      db_set(m, 'messages', m.id, 'answer_bot', text)
+      if 'Callback' not in str(m.__class__) :
+         db_set(m, 'messages', m.id, '', m.json)
+         db_set(m, 'messages', m.id, 'answer_bot', text)
       bot.send_message(m.from_user.id, text, parse_mode, reply_markup=markup)
    bot.send_message(chats_with_bot_id,
                     text,
@@ -227,6 +228,10 @@ def bot_runner():
             branch_which(message, 'for_link_top_media', status,
                          'registration_done', 'link_top_media',
                          'Ссылка на пост, видео или статью')
+         elif status == 'wait_change_link':
+            branch_which(message, 'for_link_top_media', status,
+             'change_link_done', 'change_link_ok',
+             'Ссылка на пост, видео или статью')
             db_set(message, 'time_change_link', '', '', message.date)
          else:
             send(message, 'Ожидаю скриншот с твоей помощью каналу 🙂',
@@ -241,75 +246,76 @@ def bot_runner():
       actual_page = db.reference(
           f'users/{call.from_user.id}/actual_page').get()
       markup = create_buttons('main', '', '')
-      if call.data == 'next' or call.data == 'back' or call.data == 'back_to_main':
-         quantity = len(db.reference('users').get())
-         if call.data != 'back_to_main':
-            if call.data == 'next':
-               if actual_page == quantity:
-                  actual_page = 1
+      if call.data != 'change_link':
+         if call.data == 'next' or call.data == 'back' or call.data == 'back_to_main':
+            quantity = len(db.reference('users').get())
+            if call.data != 'back_to_main':
+               if call.data == 'next':
+                  if actual_page == quantity:
+                     actual_page = 1
+                  else:
+                     actual_page = actual_page + 1  #type: ignore
                else:
-                  actual_page = actual_page + 1  #type: ignore
-            else:
-               if actual_page == 1:
-                  actual_page = quantity
+                  if actual_page == 1:
+                     actual_page = quantity
+                  else:
+                     actual_page = actual_page - 1  #type: ignore
+               db_set(call, 'actual_page', '', '', actual_page)
+            text = message_channel(call, True)
+            markup = create_buttons('main', '', '')
+         elif call.data == 'rate_channels':
+            i = 1
+            for user_id in list(
+                reversed(db.reference('users').order_by_child('rating').get())):
+               if int(user_id) == call.from_user.id:
+                  name_channel = 'Ваш канал'
                else:
-                  actual_page = actual_page - 1  #type: ignore
-            db_set(call, 'actual_page', '', '', actual_page)
-         text = message_channel(call, True)
-         markup = create_buttons('main', '', '')
-      elif call.data == 'rate_channels':
-         i = 1
-         for user_id in list(
-             reversed(db.reference('users').order_by_child('rating').get())):
-            if int(user_id) == call.from_user.id:
-               name_channel = 'Ваш канал'
-            else:
-               name_channel = db.reference(
-                   f'users/{user_id}/name_channel').get()
-            link_channel = db.reference(f'users/{user_id}/link_channel').get()
-            rating = db.reference(f'users/{user_id}/rating').get()
-            score_help = db.reference(f'users/{user_id}/score_help').get()
-            score_support = db.reference(
-                f'users/{user_id}/score_support').get()
-            text = text + formating_text(f'{i} #️⃣') + \
-            f' [{name_channel}]({link_channel}) ' + \
-            formating_text(f'{score_support} 🫂 {score_help} 🙏 {rating} 🌟\n')
-            i = i + 1
-         text = f'ТОП 10 каналов 📊\n{text}'
-         markup = create_buttons('top', '', '')
-      elif call.data == 'support_channel':
-         actual_user_id = list(
-             db.reference('users').order_by_child('rating').limit_to_last(
-                 actual_page).get())[0]
-         link_top_media = db.reference(
-             f'users/{actual_user_id}/link_top_media').get()
-         text = formating_text(db_get(
-             'script', '', 'text_to_boost')) + f'[\\.]({link_top_media})'
-         markup = create_buttons('top_media', link_top_media, '')
-         db_set(call, 'status', '', '', 'wait_screenshot')
-         id_user_supporting = list(
-             db.reference('users').order_by_child('link_channel').equal_to(
-                 call.message.entities[0].url).get())[0]
-         db_set(call, 'support_channel', '', '', id_user_supporting)
-      elif call.data == 'self_channel':
-         text = message_channel(call, True)
-         markup = create_buttons('top', 'change_link', '')
-      elif call.data == 'change_link':
+                  name_channel = db.reference(
+                      f'users/{user_id}/name_channel').get()
+               link_channel = db.reference(f'users/{user_id}/link_channel').get()
+               rating = db.reference(f'users/{user_id}/rating').get()
+               score_help = db.reference(f'users/{user_id}/score_help').get()
+               score_support = db.reference(
+                   f'users/{user_id}/score_support').get()
+               text = text + formating_text(f'{i} #️⃣') + \
+               f' [{name_channel}]({link_channel}) ' + \
+               formating_text(f'{score_support} 🫂 {score_help} 🙏 {rating} 🌟\n')
+               i = i + 1
+            text = f'ТОП 10 каналов 📊\n{text}'
+            markup = create_buttons('top', '', '')
+         elif call.data == 'support_channel':
+            actual_user_id = list(
+                db.reference('users').order_by_child('rating').limit_to_last(
+                    actual_page).get())[0]
+            link_top_media = db.reference(
+                f'users/{actual_user_id}/link_top_media').get()
+            text = formating_text(db_get(
+                'script', '', 'text_to_boost')) + f'[\\.]({link_top_media})'
+            markup = create_buttons('top_media', link_top_media, '')
+            db_set(call, 'status', '', '', 'wait_screenshot')
+            id_user_supporting = list(
+                db.reference('users').order_by_child('link_channel').equal_to(
+                    call.message.entities[0].url).get())[0]
+            db_set(call, 'support_channel', '', '', id_user_supporting)
+         elif call.data == 'self_channel':
+            text = message_channel(call, True)
+            markup = create_buttons('top', 'change_link', '')
+         bot.edit_message_text(text,
+             call.message.chat.id,
+             call.message.id,
+             reply_markup=markup,
+             parse_mode='MarkdownV2')
+         send(call, text, '', False, '', markup)
+      else: 
          if time.time() - db_get('users', call.from_user.id,
                    'time_change_link') >= 86400:
-            text = 'На какую ссылку замена?'
-            markup = create_buttons('top', 'change_link', '')
+            db_set(call, 'status', '', '', 'wait_change_link')
+            send(call, 'Давай ссыль', 'Ссылка на пост, видео или статью',
+                 True, 'wait_change_link', None)
          else:
-            text = 'время ещё не пришло'
-            markup = create_buttons('top', 'change_link', '')
+            send(call, 'Рановато ещё', '', True, 'change_link_done', None)
       send(call, f'{check_admin(call)}\n*Нажал на кнопку {call.data}*', '',
            False, '', None)
-      send(call, text, '', False, '', markup)
-      bot.edit_message_text(text,
-                            call.message.chat.id,
-                            call.message.id,
-                            reply_markup=markup,
-                            parse_mode='MarkdownV2')
 
    @bot.callback_query_handler(
        func=lambda _call: _call.message.chat.type == 'supergroup')
