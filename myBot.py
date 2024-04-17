@@ -81,7 +81,7 @@ def create_buttons(form, link, pin):
       create_markup.row(button5, button6)
    elif form == 'top':
       if link == 'change_link':
-         button1 = types.InlineKeyboardButton('Меняем ссыль',
+         button1 = types.InlineKeyboardButton('Изменить ваш топ контент 🔄',
                                               callback_data='change_link')
          create_markup.row(button1)
       button1 = types.InlineKeyboardButton('Возврат ↩',
@@ -119,17 +119,19 @@ def message_channel(c, from_to_back):
    else:
       if from_to_back and c.data == 'self_channel':
          top_user_id = c.from_user.id
+         link_top_media = db.reference(f'users/{top_user_id}/link_top_media').get()
    db_set(c, 'actual_page', '', '', actual_page)
-   name_channel = db.reference(f'users/{top_user_id}/name_channel').get()
-   link_channel = db.reference(f'users/{top_user_id}/link_channel').get()
-   rating = db.reference(f'users/{top_user_id}/rating').get()
-   score_help = db.reference(f'users/{top_user_id}/score_help').get()
-   score_support = db.reference(f'users/{top_user_id}/score_support').get()
+   name_channel = db_get('users', top_user_id, 'name_channel')
+   link_channel = db_get('users', top_user_id, 'link_channel')
+   rating = db_get('users', top_user_id, 'rating')
+   score_help = db_get('users', top_user_id, 'score_help')
+   score_support = db_get('users', top_user_id, 'score_support')
    return formating_text(
-       f'Статистика канала "{name_channel}":\n{score_support} 🫂 '
-       f'(Очки поддержки)\n{score_help} 🙏 (Очки помощи)\n{rating} 🌟 (Рейтинг '
-       f'(Очки поддержки/помощи))\n{actual_page} #️⃣ '
-       f'в рейтинге из {quantity} каналов') + f'[\\.]({link_channel})'
+       f'Статистика канала "{name_channel}":\n '
+       f'{score_support} 🫂 (Очки поддержки)\n '
+       f'{score_help} 🙏 (Очки помощи)\n '
+       f'{rating} 🌟 (Рейтинг (Очки поддержки/помощи))\n '
+       f'{actual_page} #️⃣ в рейтинге из {quantity} каналов') + f'[\\.]({link_channel})'
 
 
 def send(m, text, text_placeholder, user_to, status, markup, parse_mode=None):
@@ -313,7 +315,7 @@ def bot_runner():
             send(call, 'Давай ссыль', 'Ссылка на пост, видео или статью',
                  True, 'wait_change_link', None)
          else:
-            send(call, 'Рановато ещё', '', True, 'change_link_done', None)
+            bot.answer_callback_query(call.id, 'Подождите, пожалуйста')
       send(call, f'{check_admin(call)}\n*Нажал на кнопку {call.data}*', '',
            False, '', None)
 
