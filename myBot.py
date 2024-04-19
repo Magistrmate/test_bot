@@ -104,11 +104,15 @@ def create_buttons(form, link, pin):
 
 
 def message_channel(c, from_to_back):
-   actual_page = db.reference(f'users/{c.from_user.id}/actual_page').get()
-   quantity = len(db.reference('users').get())
+   actual_page = db_get('users', c.from_user.id, 'actual_page')
+   quantity = len(db_get('users', '', ''))
    top_user_id = list(
        db.reference('users').order_by_child('rating').limit_to_last(
            actual_page).get())[0]
+   profile = dict.fromkeys([
+       'name_channel', 'link_channel', 'rating', 'score_help', 'score_support',
+       'link_top_media'
+   ])
    if c.from_user.id == int(top_user_id):
       actual_page = actual_page + 1  #type: ignore
       if actual_page > quantity:
@@ -116,22 +120,28 @@ def message_channel(c, from_to_back):
       top_user_id = list(
           db.reference('users').order_by_child('rating').limit_to_last(
               actual_page).get())[0]
-   else:
-      if from_to_back and c.data == 'self_channel':
-         top_user_id = c.from_user.id
-         link_top_media = db.reference(f'users/{top_user_id}/link_top_media').get()
+   for keys in profile:
+      profile[keys] = db_get('users', top_user_id, keys)
+   text = (f'Статистика канала "{profile["name_channel"]}":\n'
+           f'{profile["score_support"]} 🫂 (Очки поддержки)\n'
+           f'{profile["score_help"]} 🙏 (Очки помощи)\n'
+           f'{profile["rating"]} 🌟 (Рейтинг (Очки поддержки/помощи))\n'
+           f'{actual_page} #️⃣ в рейтинге из {quantity} каналов')
+   dot = f'[\\.]({profile["link_channel"]})'
+   if from_to_back and c.data == 'self_channel':
+      top_user_id = c.from_user.id
+      for keys in profile:
+         profile[keys] = db_get('users', top_user_id, keys)
+      text = (f'Имя канала: {profile["name_channel"]}\n'
+              f'Ссылка на ТОП контент \n{profile["link_top_media"]}\n'
+              f'Ссылка на канал \n{profile["link_channel"]}\n'
+              f'{profile["score_support"]} 🫂 (Очки поддержки)\n'
+              f'{profile["score_help"]} 🙏 (Очки помощи)\n'
+              f'{profile["rating"]} 🌟 (Рейтинг (Очки поддержки/помощи))\n'
+              f'{actual_page} #️⃣ в рейтинге из {quantity} каналов')
+      dot = ''
    db_set(c, 'actual_page', '', '', actual_page)
-   name_channel = db_get('users', top_user_id, 'name_channel')
-   link_channel = db_get('users', top_user_id, 'link_channel')
-   rating = db_get('users', top_user_id, 'rating')
-   score_help = db_get('users', top_user_id, 'score_help')
-   score_support = db_get('users', top_user_id, 'score_support')
-   return formating_text(
-       f'Статистика канала "{name_channel}":\n '
-       f'{score_support} 🫂 (Очки поддержки)\n '
-       f'{score_help} 🙏 (Очки помощи)\n '
-       f'{rating} 🌟 (Рейтинг (Очки поддержки/помощи))\n '
-       f'{actual_page} #️⃣ в рейтинге из {quantity} каналов') + f'[\\.]({link_channel})'
+   return formating_text(text) + dot
 
 
 def send(m, text, text_placeholder, user_to, status, markup, parse_mode=None):
@@ -144,7 +154,7 @@ def send(m, text, text_placeholder, user_to, status, markup, parse_mode=None):
          text = f'{formating_text(text)}\n{message_channel(m, False)}'
          markup = create_buttons('main', '', '')
          parse_mode = 'MarkdownV2'
-      if 'Callback' not in str(m.__class__) :
+      if 'Callback' not in str(m.__class__):
          db_set(m, 'messages', m.id, '', m.json)
          db_set(m, 'messages', m.id, 'answer_bot', text)
       bot.send_message(m.from_user.id, text, parse_mode, reply_markup=markup)
@@ -232,8 +242,8 @@ def bot_runner():
                          'Ссылка на пост, видео или статью')
          elif status == 'wait_change_link':
             branch_which(message, 'for_link_top_media', status,
-             'change_link_done', 'change_link_ok',
-             'Ссылка на пост, видео или статью')
+                         'change_link_done', 'change_link_ok',
+                         'Ссылка на пост, видео или статью')
             db_set(message, 'time_change_link', '', '', message.date)
          else:
             send(message, 'Ожидаю скриншот с твоей помощью каналу 🙂',
@@ -268,13 +278,15 @@ def bot_runner():
          elif call.data == 'rate_channels':
             i = 1
             for user_id in list(
-                reversed(db.reference('users').order_by_child('rating').get())):
+                reversed(
+                    db.reference('users').order_by_child('rating').get())):
                if int(user_id) == call.from_user.id:
                   name_channel = 'Ваш канал'
                else:
                   name_channel = db.reference(
                       f'users/{user_id}/name_channel').get()
-               link_channel = db.reference(f'users/{user_id}/link_channel').get()
+               link_channel = db.reference(
+                   f'users/{user_id}/link_channel').get()
                rating = db.reference(f'users/{user_id}/rating').get()
                score_help = db.reference(f'users/{user_id}/score_help').get()
                score_support = db.reference(
@@ -303,17 +315,17 @@ def bot_runner():
             text = message_channel(call, True)
             markup = create_buttons('top', 'change_link', '')
          bot.edit_message_text(text,
-             call.message.chat.id,
-             call.message.id,
-             reply_markup=markup,
-             parse_mode='MarkdownV2')
+                               call.message.chat.id,
+                               call.message.id,
+                               reply_markup=markup,
+                               parse_mode='MarkdownV2')
          send(call, text, '', False, '', markup)
-      else: 
+      else:
          if time.time() - db_get('users', call.from_user.id,
-                   'time_change_link') >= 86400:
+                                 'time_change_link') >= 86400:
             db_set(call, 'status', '', '', 'wait_change_link')
-            send(call, 'Давай ссыль', 'Ссылка на пост, видео или статью',
-                 True, 'wait_change_link', None)
+            send(call, 'Давай ссыль', 'Ссылка на пост, видео или статью', True,
+                 'wait_change_link', None)
          else:
             bot.answer_callback_query(call.id, 'Подождите, пожалуйста')
       send(call, f'{check_admin(call)}\n*Нажал на кнопку {call.data}*', '',
