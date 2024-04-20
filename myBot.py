@@ -81,7 +81,7 @@ def create_buttons(form, link, pin):
       create_markup.row(button5, button6)
    elif form == 'top':
       if link == 'change_link':
-         button1 = types.InlineKeyboardButton('Изменить ваш топ контент 🔄',
+         button1 = types.InlineKeyboardButton('Изменить ваш ТОП контент 🔄',
                                               callback_data='change_link')
          create_markup.row(button1)
       button1 = types.InlineKeyboardButton('Возврат ↩',
@@ -125,7 +125,7 @@ def message_channel(c, from_to_back):
    text = (f'Статистика канала "{profile["name_channel"]}":\n'
            f'{profile["score_support"]} 🫂 (Очки поддержки)\n'
            f'{profile["score_help"]} 🙏 (Очки помощи)\n'
-           f'{profile["rating"]} 🌟 (Рейтинг (Очки поддержки/помощи))\n'
+           f'{profile["rating"]} 🌟 (Рейтинг \n(Очки поддержки/помощи))\n'
            f'{actual_page} #️⃣ в рейтинге из {quantity} каналов')
    dot = f'[\\.]({profile["link_channel"]})'
    if from_to_back and c.data == 'self_channel':
@@ -133,8 +133,8 @@ def message_channel(c, from_to_back):
       for keys in profile:
          profile[keys] = db_get('users', top_user_id, keys)
       text = (f'Имя канала: {profile["name_channel"]}\n'
-              f'Ссылка на ТОП контент \n{profile["link_top_media"]}\n'
-              f'Ссылка на канал \n{profile["link_channel"]}\n'
+              f'Ссылка на ТОП контент: \n{profile["link_top_media"]}\n'
+              f'Ссылка на канал: \n{profile["link_channel"]}\n'
               f'{profile["score_support"]} 🫂 (Очки поддержки)\n'
               f'{profile["score_help"]} 🙏 (Очки помощи)\n'
               f'{profile["rating"]} 🌟 (Рейтинг (Очки поддержки/помощи))\n'
@@ -169,8 +169,12 @@ def branch_which(m, branch, status, next_status, link, text_placeholder):
    if m.entities is not None:
       if m.entities[0].type == 'url':
          if 'dzen.ru' in m.text:
-            send(m, db_get('script', branch, 'success'), text_placeholder,
-                 True, next_status, None)
+            if next_status == 'change_link_done':
+               send(m, db_get('script', branch, 'change_link'), text_placeholder, 
+                    True, next_status, None)
+            else:
+               send(m, db_get('script', branch, 'success'), text_placeholder,
+                    True, next_status, None)
             offset = m.entities[0].offset
             length = m.entities[0].length
             db_set(m, link, '', '', m.text[offset:offset + length])
@@ -235,14 +239,14 @@ def bot_runner():
             branch_which(message, 'for_link_channel', status,
                          'wait_link_top_media', 'link_channel',
                          'Ссылка на канал')
-         elif status == 'wait_link_top_media':
-            db_set(message, 'actual_page', '', '', 1)
+         elif status == 'wait_link_top_media' or status == 'wait_change_link':
+            if status == 'wait_link_top_media':
+               db_set(message, 'actual_page', '', '', 1)
+               next_status = 'registration_done'
+            else:
+               next_status = 'change_link_done'
             branch_which(message, 'for_link_top_media', status,
-                         'registration_done', 'link_top_media',
-                         'Ссылка на пост, видео или статью')
-         elif status == 'wait_change_link':
-            branch_which(message, 'for_link_top_media', status,
-                         'change_link_done', 'change_link_ok',
+                         next_status, 'link_top_media',
                          'Ссылка на пост, видео или статью')
             db_set(message, 'time_change_link', '', '', message.date)
          else:
@@ -324,10 +328,16 @@ def bot_runner():
          if time.time() - db_get('users', call.from_user.id,
                                  'time_change_link') >= 86400:
             db_set(call, 'status', '', '', 'wait_change_link')
-            send(call, 'Давай ссыль', 'Ссылка на пост, видео или статью', True,
-                 'wait_change_link', None)
+            send(call,
+                 'жду от вас ссылку на новый контент с вашего канала 🙋‍♂',
+                 'Ссылка на пост, видео или статью', True, 'wait_change_link',
+                 None)
          else:
-            bot.answer_callback_query(call.id, 'Подождите, пожалуйста')
+            time_wait = 86400 - (time.time() - db_get(
+                'users', call.from_user.id, 'time_change_link'))
+            bot.answer_callback_query(
+                call.id, f'Извините, ссылку можно будет изменить через '
+                f'{time.strftime("%H:%M:%S", time.gmtime(time_wait))} 🙏')
       send(call, f'{check_admin(call)}\n*Нажал на кнопку {call.data}*', '',
            False, '', None)
 
