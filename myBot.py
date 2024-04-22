@@ -120,6 +120,8 @@ def message_channel(c, from_to_back):
       top_user_id = list(
           db.reference('users').order_by_child('rating').limit_to_last(
               actual_page).get())[0]
+   elif top_user_id in list(db_get('users', c.from_user.id, 'support_channels_done')):
+      print('ok')
    for keys in profile:
       profile[keys] = db_get('users', top_user_id, keys)
    text = (f'Статистика канала "{profile["name_channel"]}":\n'
@@ -170,8 +172,8 @@ def branch_which(m, branch, status, next_status, link, text_placeholder):
       if m.entities[0].type == 'url':
          if 'dzen.ru' in m.text:
             if next_status == 'change_link_done':
-               send(m, db_get('script', branch, 'change_link'), text_placeholder, 
-                    True, next_status, None)
+               send(m, db_get('script', branch, 'change_link'),
+                    text_placeholder, True, next_status, None)
             else:
                send(m, db_get('script', branch, 'success'), text_placeholder,
                     True, next_status, None)
@@ -245,9 +247,8 @@ def bot_runner():
                next_status = 'registration_done'
             else:
                next_status = 'change_link_done'
-            branch_which(message, 'for_link_top_media', status,
-                         next_status, 'link_top_media',
-                         'Ссылка на пост, видео или статью')
+            branch_which(message, 'for_link_top_media', status, next_status,
+                         'link_top_media', 'Ссылка на пост, видео или статью')
             db_set(message, 'time_change_link', '', '', message.date)
          else:
             send(message, 'Ожидаю скриншот с твоей помощью каналу 🙂',
@@ -362,7 +363,6 @@ def bot_runner():
          score_help = db.reference(f'users/{user_id_help}/score_help').get()
          db.reference(f'users/{user_id_help}/score_help').set(score_help +
                                                               1)  #type: ignore
-
       else:
          markup = create_buttons('moder_question', '', random_emoji()[0])
       bot.edit_message_reply_markup(call.message.chat.id,
@@ -383,6 +383,7 @@ def bot_runner():
       send(photo, db_get('script', '', 'after_help'), '', True,
            'registration_done', None)
       bot.pin_chat_message(chats_with_bot_id, sent.message_id)
+      db_set(photo, 'support_channels_done', support_channel, '', time.time())
 
    @bot.message_handler(content_types=['pinned_message'])
    def message_handler(notification):
