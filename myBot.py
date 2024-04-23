@@ -56,6 +56,7 @@ def id_topic_target(m):
       db_set(m, 'score_help', '', '', 1)
       db_set(m, 'score_support', '', '', 1)
       db_set(m, 'rating', '', '', 1)
+      db_set(m, 'support_channels_done', 1, '', 1)
    else:
       id_topic = db_get('users', m.from_user.id, 'id_topic')
    return id_topic
@@ -113,6 +114,22 @@ def message_channel(c, from_to_back):
        'name_channel', 'link_channel', 'rating', 'score_help', 'score_support',
        'link_top_media'
    ])
+   if top_user_id in list(
+       db_get('users', c.from_user.id, 'support_channels_done')):
+      real_time = time.time() - db.reference(
+          f'/users/{c.from_user.id}/support_channels_done/{top_user_id}').get(
+              etag=True)[0]
+      if real_time <= 86400:
+         actual_page = actual_page + 1  #type: ignore
+         if actual_page > quantity:
+            actual_page = 1
+         top_user_id = list(
+             db.reference('users').order_by_child('rating').limit_to_last(
+                 actual_page).get())[0]
+      else:
+         db.reference(
+             f'users/{c.from_user.id}/support_channels_done/{top_user_id}'
+         ).set(1)
    if c.from_user.id == int(top_user_id):
       actual_page = actual_page + 1  #type: ignore
       if actual_page > quantity:
@@ -120,8 +137,6 @@ def message_channel(c, from_to_back):
       top_user_id = list(
           db.reference('users').order_by_child('rating').limit_to_last(
               actual_page).get())[0]
-   elif top_user_id in list(db_get('users', c.from_user.id, 'support_channels_done')):
-      print('ok')
    for keys in profile:
       profile[keys] = db_get('users', top_user_id, keys)
    text = (f'Статистика канала "{profile["name_channel"]}":\n'
@@ -384,6 +399,8 @@ def bot_runner():
            'registration_done', None)
       bot.pin_chat_message(chats_with_bot_id, sent.message_id)
       db_set(photo, 'support_channels_done', support_channel, '', time.time())
+      db.reference(
+          f'users/{photo.from_user.id}/support_channels_done/1').delete()
 
    @bot.message_handler(content_types=['pinned_message'])
    def message_handler(notification):
