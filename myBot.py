@@ -107,38 +107,46 @@ def create_buttons(form, link, pin):
 def message_channel(c, from_to_back):
    actual_page = db_get('users', c.from_user.id, 'actual_page')
    quantity = len(db_get('users', '', ''))
-   top_user_id = list(
+   channel_page = list(
        db.reference('users').order_by_child('rating').limit_to_last(
            actual_page).get())[0]
+   print(f'\n1 {channel_page} {actual_page}')
    profile = dict.fromkeys([
        'name_channel', 'link_channel', 'rating', 'score_help', 'score_support',
        'link_top_media'
    ])
-   if top_user_id in list(
-       db_get('users', c.from_user.id, 'support_channels_done')):
+   list_support_channels_done = list(
+       db_get('users', c.from_user.id, 'support_channels_done'))
+   while channel_page in list_support_channels_done:
+      # if channel_page in list_support_channels_done:
       real_time = time.time() - db.reference(
-          f'/users/{c.from_user.id}/support_channels_done/{top_user_id}').get(
-              etag=True)[0]
+          f'/users/{c.from_user.id}/support_channels_done/{channel_page}').get(etag=True)[0]
       if real_time <= 86400:
          actual_page = actual_page + 1  #type: ignore
          if actual_page > quantity:
             actual_page = 1
-         top_user_id = list(
+         channel_page = list(
              db.reference('users').order_by_child('rating').limit_to_last(
                  actual_page).get())[0]
+         print(f'Нашёл в списке меньше суток {channel_page} {actual_page}')
       else:
          db.reference(
-             f'users/{c.from_user.id}/support_channels_done/{top_user_id}'
-         ).set(1)
-   if c.from_user.id == int(top_user_id):
-      actual_page = actual_page + 1  #type: ignore
-      if actual_page > quantity:
-         actual_page = 1
-      top_user_id = list(
-          db.reference('users').order_by_child('rating').limit_to_last(
-              actual_page).get())[0]
+             f'users/{c.from_user.id}/support_channels_done/{channel_page}'
+         ).delete()
+         db.reference(
+             f'users/{c.from_user.id}/support_channels_done/1').set(1)
+         break
+      if c.from_user.id == int(channel_page):
+         actual_page = actual_page + 1  #type: ignore
+         if actual_page > quantity:
+            actual_page = 1
+         channel_page = list(
+             db.reference('users').order_by_child('rating').limit_to_last(
+                 actual_page).get())[0]
+      print(f'Собственный канал {channel_page} {actual_page}')
+   print(f'после while {channel_page}')
    for keys in profile:
-      profile[keys] = db_get('users', top_user_id, keys)
+      profile[keys] = db_get('users', channel_page, keys)
    text = (f'Статистика канала "{profile["name_channel"]}":\n'
            f'{profile["score_support"]} 🫂 (Очки поддержки)\n'
            f'{profile["score_help"]} 🙏 (Очки помощи)\n'
@@ -146,9 +154,9 @@ def message_channel(c, from_to_back):
            f'{actual_page} #️⃣ в рейтинге из {quantity} каналов')
    dot = f'[\\.]({profile["link_channel"]})'
    if from_to_back and c.data == 'self_channel':
-      top_user_id = c.from_user.id
+      channel_page = c.from_user.id
       for keys in profile:
-         profile[keys] = db_get('users', top_user_id, keys)
+         profile[keys] = db_get('users', channel_page, keys)
       text = (f'Имя канала: {profile["name_channel"]}\n'
               f'Ссылка на ТОП контент: \n{profile["link_top_media"]}\n'
               f'Ссылка на канал: \n{profile["link_channel"]}\n'
@@ -395,12 +403,12 @@ def bot_runner():
           'MarkdownV2',
           message_thread_id=id_topic_target(photo),
           reply_markup=create_buttons('moder_question', '', ''))
-      send(photo, db_get('script', '', 'after_help'), '', True,
-           'registration_done', None)
       bot.pin_chat_message(chats_with_bot_id, sent.message_id)
       db_set(photo, 'support_channels_done', support_channel, '', time.time())
       db.reference(
           f'users/{photo.from_user.id}/support_channels_done/1').delete()
+      send(photo, db_get('script', '', 'after_help'), '', True,
+           'registration_done', None)
 
    @bot.message_handler(content_types=['pinned_message'])
    def message_handler(notification):
