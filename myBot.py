@@ -104,47 +104,53 @@ def create_buttons(form, link, pin):
    return create_markup
 
 
+def change_actual_page(a_p, q, n):
+   a_p = a_p + n  #type: ignore
+   if a_p > q:
+      a_p = 1
+   channel_page = list(
+       db.reference('users').order_by_child('rating').limit_to_last(
+       a_p).get())[0]
+   return channel_page, a_p
+
+   
 def message_channel(c, from_to_back):
    actual_page = db_get('users', c.from_user.id, 'actual_page')
    quantity = len(db_get('users', '', ''))
    channel_page = list(
        db.reference('users').order_by_child('rating').limit_to_last(
            actual_page).get())[0]
-   print(f'\n1 {channel_page} {actual_page}')
    profile = dict.fromkeys([
        'name_channel', 'link_channel', 'rating', 'score_help', 'score_support',
        'link_top_media'
    ])
    list_support_channels_done = list(
        db_get('users', c.from_user.id, 'support_channels_done'))
+   while c.from_user.id == int(channel_page):
+      change_actual_page(actual_page, quantity, 1)
+      if channel_page in list_support_channels_done:
+         real_time = time.time() - db.reference(
+             f'/users/{c.from_user.id}/support_channels_done/{channel_page}'
+         ).get(etag=True)[0]
+         if real_time >= 86400:
+            db.reference(
+                f'users/{c.from_user.id}/support_channels_done/{channel_page}'
+            ).delete()
+            db.reference(
+                f'users/{c.from_user.id}/support_channels_done/1').set(1)
+         change_actual_page(a_p, quantity, 2)
    while channel_page in list_support_channels_done:
-      # if channel_page in list_support_channels_done:
       real_time = time.time() - db.reference(
-          f'/users/{c.from_user.id}/support_channels_done/{channel_page}').get(etag=True)[0]
-      if real_time <= 86400:
-         actual_page = actual_page + 1  #type: ignore
-         if actual_page > quantity:
-            actual_page = 1
-         channel_page = list(
-             db.reference('users').order_by_child('rating').limit_to_last(
-                 actual_page).get())[0]
-         print(f'Нашёл в списке меньше суток {channel_page} {actual_page}')
-      else:
+          f'/users/{c.from_user.id}/support_channels_done/{channel_page}').get(
+              etag=True)[0]
+      if real_time >= 86400:
          db.reference(
              f'users/{c.from_user.id}/support_channels_done/{channel_page}'
          ).delete()
-         db.reference(
-             f'users/{c.from_user.id}/support_channels_done/1').set(1)
-         break
+         db.reference(f'users/{c.from_user.id}/support_channels_done/1').set(1)
+      change_actual_page(actual_page, quantity, 2)
       if c.from_user.id == int(channel_page):
-         actual_page = actual_page + 1  #type: ignore
-         if actual_page > quantity:
-            actual_page = 1
-         channel_page = list(
-             db.reference('users').order_by_child('rating').limit_to_last(
-                 actual_page).get())[0]
-      print(f'Собственный канал {channel_page} {actual_page}')
-   print(f'после while {channel_page}')
+         change_actual_page(actual_page, quantity, 1)
    for keys in profile:
       profile[keys] = db_get('users', channel_page, keys)
    text = (f'Статистика канала "{profile["name_channel"]}":\n'
