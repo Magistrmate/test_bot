@@ -1,30 +1,17 @@
 [tool.poetry]
-name = "python-template"
+name = "dzenbot"
 version = "0.1.0"
 description = ""
-authors = ["Your Name <you@example.com>"]
+authors = ["Magistrmate <101048039+Magistrmate@users.noreply.github.com>"]
+readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.10.0,<3.11"
-telebot = "^0.0.5"
-replit = "^3.3.2"
-firebase-admin = "^6.2.0"
-pyrogram = "^2.0.106"
-telethon = "^1.30.3"
-xds-protos = "^1.59.0"
-flask = "^3.0.2"
-pytelegrambotapi = "^4.16.1"
+python = "^3.10"
+pytelegrambotapi = "^4.19.2"
+firebase-admin = "^6.5.0"
+flask = "^3.0.3"
 
-[tool.pyright]
-# https://github.com/microsoft/pyright/blob/main/docs/configuration.md
-useLibraryCodeForTypes = true
-exclude = [".cache"]
-
-[tool.ruff]
-# https://beta.ruff.rs/docs/configuration/
-select = ['E', 'W', 'F', 'I', 'B', 'C4', 'ARG', 'SIM']
-ignore = ['W291', 'W292', 'W293']
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

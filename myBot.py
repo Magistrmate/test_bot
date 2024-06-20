@@ -105,15 +105,15 @@ def create_buttons(form, link, pin):
 
 
 def change_actual_page(a_p, q, n):
-   a_p = a_p + n  #type: ignore
+   a_p = a_p + n
    if a_p > q:
       a_p = 1
    channel_page = list(
        db.reference('users').order_by_child('rating').limit_to_last(
-       a_p).get())[0]
+           a_p).get())[0]
    return channel_page, a_p
 
-   
+
 def message_channel(c, from_to_back):
    actual_page = db_get('users', c.from_user.id, 'actual_page')
    quantity = len(db_get('users', '', ''))
@@ -127,7 +127,13 @@ def message_channel(c, from_to_back):
    list_support_channels_done = list(
        db_get('users', c.from_user.id, 'support_channels_done'))
    while c.from_user.id == int(channel_page):
-      change_actual_page(actual_page, quantity, 1)
+      # actual_page = actual_page + 1
+      # if actual_page > quantity:
+      #    actual_page = 1
+      # channel_page = list(
+      #     db.reference('users').order_by_child('rating').limit_to_last(
+      #         actual_page).get())[0]
+      channel_page, actual_page = change_actual_page(actual_page, quantity, 1)
       if channel_page in list_support_channels_done:
          real_time = time.time() - db.reference(
              f'/users/{c.from_user.id}/support_channels_done/{channel_page}'
@@ -138,7 +144,13 @@ def message_channel(c, from_to_back):
             ).delete()
             db.reference(
                 f'users/{c.from_user.id}/support_channels_done/1').set(1)
-         change_actual_page(a_p, quantity, 2)
+         # actual_page = actual_page + 2
+         # if actual_page > quantity:
+         #    actual_page = 1
+         # channel_page = list(
+         #     db.reference('users').order_by_child('rating').limit_to_last(
+         #         actual_page).get())[0]
+         channel_page, actual_page = change_actual_page(actual_page, quantity, 2)
    while channel_page in list_support_channels_done:
       real_time = time.time() - db.reference(
           f'/users/{c.from_user.id}/support_channels_done/{channel_page}').get(
@@ -148,9 +160,21 @@ def message_channel(c, from_to_back):
              f'users/{c.from_user.id}/support_channels_done/{channel_page}'
          ).delete()
          db.reference(f'users/{c.from_user.id}/support_channels_done/1').set(1)
-      change_actual_page(actual_page, quantity, 2)
+      # actual_page = actual_page + 1
+      # if actual_page > quantity:
+      #    actual_page = 1
+      # channel_page = list(
+      #     db.reference('users').order_by_child('rating').limit_to_last(
+      #         actual_page).get())[0]
+      channel_page, actual_page = change_actual_page(actual_page, quantity, 1)
       if c.from_user.id == int(channel_page):
-         change_actual_page(actual_page, quantity, 1)
+         # actual_page = actual_page + 1
+         # if actual_page > quantity:
+         #    actual_page = 1
+         # channel_page = list(
+         #     db.reference('users').order_by_child('rating').limit_to_last(
+         #         actual_page).get())[0]
+         channel_page, actual_page = change_actual_page(actual_page, quantity, 1)
    for keys in profile:
       profile[keys] = db_get('users', channel_page, keys)
    text = (f'Статистика канала "{profile["name_channel"]}":\n'
