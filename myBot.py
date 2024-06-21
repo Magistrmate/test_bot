@@ -6,17 +6,16 @@ import time
 
 import firebase_admin
 import telebot
-from firebase_admin import credentials, db  # type: ignore
+from firebase_admin import credentials, db
 from random_unicode_emoji import random_emoji
 from telebot import types
 
 cred = credentials.Certificate(json.loads(os.environ['KEY']))
 
-default_app = firebase_admin.initialize_app(  # type: ignore 
-    cred, {
-        'databaseURL':
-        'https://big-signifier-398111-default-rtdb.firebaseio.com/'
-    })
+default_app = firebase_admin.initialize_app(cred, {
+    'databaseURL':
+    'https://big-signifier-398111-default-rtdb.firebaseio.com/'
+})
 
 bot = telebot.TeleBot(os.environ['TOKEN'])
 chats_with_bot_id = int(os.environ['CHATS_WITH_BOT_ID'])
@@ -62,7 +61,7 @@ def id_topic_target(m):
    return id_topic
 
 
-def create_buttons(form, link, pin):
+def create_buttons(form, link, pin, opt):
    create_markup = types.InlineKeyboardMarkup()
    if form == 'main':
       button1 = types.InlineKeyboardButton('⬆ Поддержать этот канал ❤',
@@ -77,7 +76,8 @@ def create_buttons(form, link, pin):
                                            callback_data='help')
 
       create_markup.row(button1)
-      create_markup.row(button2, button3)
+      if opt == 0:
+         create_markup.row(button2, button3)
       create_markup.row(button4)
       create_markup.row(button5, button6)
    elif form == 'top':
@@ -127,12 +127,6 @@ def message_channel(c, from_to_back):
    list_support_channels_done = list(
        db_get('users', c.from_user.id, 'support_channels_done'))
    while c.from_user.id == int(channel_page):
-      # actual_page = actual_page + 1
-      # if actual_page > quantity:
-      #    actual_page = 1
-      # channel_page = list(
-      #     db.reference('users').order_by_child('rating').limit_to_last(
-      #         actual_page).get())[0]
       channel_page, actual_page = change_actual_page(actual_page, quantity, 1)
       if channel_page in list_support_channels_done:
          real_time = time.time() - db.reference(
@@ -144,13 +138,8 @@ def message_channel(c, from_to_back):
             ).delete()
             db.reference(
                 f'users/{c.from_user.id}/support_channels_done/1').set(1)
-         # actual_page = actual_page + 2
-         # if actual_page > quantity:
-         #    actual_page = 1
-         # channel_page = list(
-         #     db.reference('users').order_by_child('rating').limit_to_last(
-         #         actual_page).get())[0]
-         channel_page, actual_page = change_actual_page(actual_page, quantity, 2)
+         channel_page, actual_page = change_actual_page(
+             actual_page, quantity, 2)
    while channel_page in list_support_channels_done:
       real_time = time.time() - db.reference(
           f'/users/{c.from_user.id}/support_channels_done/{channel_page}').get(
@@ -160,21 +149,10 @@ def message_channel(c, from_to_back):
              f'users/{c.from_user.id}/support_channels_done/{channel_page}'
          ).delete()
          db.reference(f'users/{c.from_user.id}/support_channels_done/1').set(1)
-      # actual_page = actual_page + 1
-      # if actual_page > quantity:
-      #    actual_page = 1
-      # channel_page = list(
-      #     db.reference('users').order_by_child('rating').limit_to_last(
-      #         actual_page).get())[0]
       channel_page, actual_page = change_actual_page(actual_page, quantity, 1)
       if c.from_user.id == int(channel_page):
-         # actual_page = actual_page + 1
-         # if actual_page > quantity:
-         #    actual_page = 1
-         # channel_page = list(
-         #     db.reference('users').order_by_child('rating').limit_to_last(
-         #         actual_page).get())[0]
-         channel_page, actual_page = change_actual_page(actual_page, quantity, 1)
+         channel_page, actual_page = change_actual_page(
+             actual_page, quantity, 1)
    for keys in profile:
       profile[keys] = db_get('users', channel_page, keys)
    text = (f'Статистика канала "{profile["name_channel"]}":\n'
@@ -207,7 +185,13 @@ def send(m, text, text_placeholder, user_to, status, markup, parse_mode=None):
          markup = types.ForceReply(True, text_placeholder)
       else:
          text = f'{formating_text(text)}\n{message_channel(m, False)}'
-         markup = create_buttons('main', '', '')
+         if len(db_get(
+             'users', m.from_user.id,
+             'support_channels_done')) == len(db_get('users', '', '')) - 2:
+            optional = 1
+         else:
+            optional = 0
+         markup = create_buttons('main', '', '', optional)
          parse_mode = 'MarkdownV2'
       if 'Callback' not in str(m.__class__):
          db_set(m, 'messages', m.id, '', m.json)
@@ -315,7 +299,7 @@ def bot_runner():
    def callback_query_handler(call, text=''):
       actual_page = db.reference(
           f'users/{call.from_user.id}/actual_page').get()
-      markup = create_buttons('main', '', '')
+      markup = create_buttons('main', '', '', 0)
       if call.data != 'change_link':
          if call.data == 'next' or call.data == 'back' or call.data == 'back_to_main':
             quantity = len(db.reference('users').get())
@@ -332,7 +316,7 @@ def bot_runner():
                      actual_page = actual_page - 1  #type: ignore
                db_set(call, 'actual_page', '', '', actual_page)
             text = message_channel(call, True)
-            markup = create_buttons('main', '', '')
+            markup = create_buttons('main', '', '', 0)
          elif call.data == 'rate_channels':
             i = 1
             for user_id in list(
@@ -354,7 +338,7 @@ def bot_runner():
                formating_text(f'{score_support} 🫂 {score_help} 🙏 {rating} 🌟\n')
                i = i + 1
             text = f'ТОП 10 каналов 📊\n{text}'
-            markup = create_buttons('top', '', '')
+            markup = create_buttons('top', '', '', 0)
          elif call.data == 'support_channel':
             actual_user_id = list(
                 db.reference('users').order_by_child('rating').limit_to_last(
@@ -363,7 +347,7 @@ def bot_runner():
                 f'users/{actual_user_id}/link_top_media').get()
             text = formating_text(db_get(
                 'script', '', 'text_to_boost')) + f'[\\.]({link_top_media})'
-            markup = create_buttons('top_media', link_top_media, '')
+            markup = create_buttons('top_media', link_top_media, '', 0)
             db_set(call, 'status', '', '', 'wait_screenshot')
             id_user_supporting = list(
                 db.reference('users').order_by_child('link_channel').equal_to(
@@ -371,7 +355,7 @@ def bot_runner():
             db_set(call, 'support_channel', '', '', id_user_supporting)
          elif call.data == 'self_channel':
             text = message_channel(call, True)
-            markup = create_buttons('top', 'change_link', '')
+            markup = create_buttons('top', 'change_link', '', 0)
          bot.edit_message_text(text,
                                call.message.chat.id,
                                call.message.id,
@@ -400,7 +384,7 @@ def bot_runner():
    def callback_query(call):
       if call.data == 'acceptance':
          bot.unpin_chat_message(call.message.chat.id, call.message.id)
-         markup = create_buttons('moder_question', random_emoji()[0], '')
+         markup = create_buttons('moder_question', random_emoji()[0], '', 0)
          id_to_user = list(
              db.reference('users').order_by_child('id_topic').equal_to(
                  call.message.message_thread_id).get())[0]
@@ -417,7 +401,7 @@ def bot_runner():
          db.reference(f'users/{user_id_help}/score_help').set(score_help +
                                                               1)  #type: ignore
       else:
-         markup = create_buttons('moder_question', '', random_emoji()[0])
+         markup = create_buttons('moder_question', '', random_emoji()[0], 0)
       bot.edit_message_reply_markup(call.message.chat.id,
                                     call.message.id,
                                     reply_markup=markup)
@@ -425,18 +409,18 @@ def bot_runner():
    @bot.message_handler(func=lambda _message: True, content_types=['photo'])
    def photo_handler(photo):
       db_set(photo, 'status', '', '', 'screenshot_done')
-      support_channel = db_get('users', photo.from_user.id, 'support_channel')
+      user_id = photo.from_user.id
+      support_channel = db_get('users', user_id, 'support_channel')
       sent = bot.send_photo(
           chats_with_bot_id,
           photo.photo[-1].file_id,
           f'{check_admin(photo)}\n{photo.caption}\n||{support_channel}||',
           'MarkdownV2',
           message_thread_id=id_topic_target(photo),
-          reply_markup=create_buttons('moder_question', '', ''))
+          reply_markup=create_buttons('moder_question', '', '', 0))
       bot.pin_chat_message(chats_with_bot_id, sent.message_id)
       db_set(photo, 'support_channels_done', support_channel, '', time.time())
-      db.reference(
-          f'users/{photo.from_user.id}/support_channels_done/1').delete()
+      db.reference(f'users/{user_id}/support_channels_done/1').delete()
       send(photo, db_get('script', '', 'after_help'), '', True,
            'registration_done', None)
 
