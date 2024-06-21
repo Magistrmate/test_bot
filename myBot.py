@@ -184,14 +184,18 @@ def send(m, text, text_placeholder, user_to, status, markup, parse_mode=None):
       if 'done' not in status:
          markup = types.ForceReply(True, text_placeholder)
       else:
-         text = f'{formating_text(text)}\n{message_channel(m, False)}'
+         next_back_buttons = 0
          if len(db_get(
              'users', m.from_user.id,
-             'support_channels_done')) == len(db_get('users', '', '')) - 2:
-            optional = 1
+             'support_channels_done')) == len(db_get('users', '', '')) - 1:
+            text = 'хэло'
          else:
-            optional = 0
-         markup = create_buttons('main', '', '', optional)
+            text = f'{formating_text(text)}\n{message_channel(m, False)}'
+            if len(db_get(
+                'users', m.from_user.id,
+                'support_channels_done')) == len(db_get('users', '', '')) - 2:
+               next_back_buttons = 1
+         markup = create_buttons('main', '', '', next_back_buttons)
          parse_mode = 'MarkdownV2'
       if 'Callback' not in str(m.__class__):
          db_set(m, 'messages', m.id, '', m.json)
