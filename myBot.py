@@ -133,11 +133,11 @@ def message_channel(c, from_to_back):
              f'/users/{c.from_user.id}/support_channels_done/{channel_page}'
          ).get(etag=True)[0]
          if real_time >= 86400:
+            if len(list_support_channels_done) == 1:
+               db_set(c, 'support_channels_done', '', 1, 1)
             db.reference(
                 f'users/{c.from_user.id}/support_channels_done/{channel_page}'
             ).delete()
-            db.reference(
-                f'users/{c.from_user.id}/support_channels_done/1').set(1)
          channel_page, actual_page = change_actual_page(
              actual_page, quantity, 2)
    while channel_page in list_support_channels_done:
@@ -145,10 +145,11 @@ def message_channel(c, from_to_back):
           f'/users/{c.from_user.id}/support_channels_done/{channel_page}').get(
               etag=True)[0]
       if real_time >= 86400:
+         if len(list_support_channels_done) == 1:
+            db_set(c, 'support_channels_done', '', 1, 1)
          db.reference(
              f'users/{c.from_user.id}/support_channels_done/{channel_page}'
          ).delete()
-         db.reference(f'users/{c.from_user.id}/support_channels_done/1').set(1)
       channel_page, actual_page = change_actual_page(actual_page, quantity, 1)
       if c.from_user.id == int(channel_page):
          channel_page, actual_page = change_actual_page(
@@ -320,7 +321,23 @@ def bot_runner():
                      actual_page = actual_page - 1  #type: ignore
                db_set(call, 'actual_page', '', '', actual_page)
             text = message_channel(call, True)
-            markup = create_buttons('main', '', '', 0)
+            next_back_buttons = 0
+            print(
+                len(db_get('users', call.from_user.id,
+                           'support_channels_done')))
+            print(
+                db.reference(
+                    f'/users/{call.from_user.id}/support_channels_done').get())
+            for f in db.reference(
+                f'/users/{call.from_user.id}/support_channels_done').get():
+               print(f)
+            print(len(db_get('users', '', '')) - 2)
+            if len(
+                db_get('users', call.from_user.id, 'support_channels_done')
+            ) == (len(db_get('users', '', '')) - 2) and 1 not in db.reference(
+                f'/users/{call.from_user.id}/support_channels_done').get():
+               next_back_buttons = 1
+            markup = create_buttons('main', '', '', next_back_buttons)
          elif call.data == 'rate_channels':
             i = 1
             for user_id in list(
