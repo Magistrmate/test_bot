@@ -37,9 +37,10 @@ def db_get(name_db, key1, key2):
    return db.reference(f'/{name_db}/{key1}/{key2}').get(etag=True)[0]
 
 
-def db_set(m, key1, key2, key3, value):
-   return db.reference(f'/users/{m.from_user.id}/{key1}/{key2}/{key3}').set(
-       value)
+def db_set(variable, key1, key2, key3, value):
+   if not isinstance(variable, (str, float)):
+      variable = variable.from_user.id
+   return db.reference(f'/users/{variable}/{key1}/{key2}/{key3}').set(value)
 
 
 def id_topic_target(m):
@@ -142,7 +143,10 @@ def message_channel(c, from_to_back):
    if from_to_back and c.data == 'self_channel':
       channel_page = c.from_user.id
       for keys in profile:
-         profile[keys] = db_get('users', channel_page, keys)
+         if keys == 'rating':
+            profile[keys] = round(db_get('users', channel_page, keys), 2)
+         else:
+            profile[keys] = db_get('users', channel_page, keys)
       text = (f'Имя канала: {profile["name_channel"]}\n'
               f'Ссылка на ТОП контент: \n{profile["link_top_media"]}\n'
               f'Ссылка на канал: \n{profile["link_channel"]}\n'
@@ -170,7 +174,10 @@ def message_channel(c, from_to_back):
             channel_page, actual_page = change_actual_page(
                 actual_page, quantity, 1)
       for keys in profile:
-         profile[keys] = db_get('users', channel_page, keys)
+         if keys == 'rating':
+            profile[keys] = round(db_get('users', channel_page, keys), 2)
+         else:
+            profile[keys] = db_get('users', channel_page, keys)
       text = (f'Статистика канала "{profile["name_channel"]}":\n'
               f'{profile["score_support"]} 🫂 (Очки поддержки)\n'
               f'{profile["score_help"]} 🙏 (Очки помощи)\n'
@@ -364,7 +371,8 @@ def bot_runner():
                       f'users/{user_id}/name_channel').get()
                link_channel = db.reference(
                    f'users/{user_id}/link_channel').get()
-               rating = db.reference(f'users/{user_id}/rating').get()
+               # rating = db.reference(f'users/{user_id}/rating').get()
+               rating = round(db_get('users', user_id, 'rating'), 2)
                score_help = db.reference(f'users/{user_id}/score_help').get()
                score_support = db.reference(
                    f'users/{user_id}/score_support').get()
@@ -423,31 +431,25 @@ def bot_runner():
          id_to_user = list(
              db.reference('users').order_by_child('id_topic').equal_to(
                  call.message.message_thread_id).get())[0]
-         # bot.send_message(id_to_user, 'красава')
-         score_support_this_user = db.reference(
-             f'users/{id_to_user}/score_support').get()
-         db.reference(f'users/{id_to_user}/score_support').set(
-             score_support_this_user + 1)  #type: ignore
-         score_support_this_user = db.reference(
-             f'users/{id_to_user}/score_support').get()
-         score_help_this_user = db.reference(
-             f'users/{id_to_user}/score_help').get()
-         db.reference(f'users/{id_to_user}/rating').set(
-             score_support_this_user / score_help_this_user)  #type: ignore
+         bot.send_message(id_to_user, 'Твоя помощь прошла модерацию👨‍⚖️ Ожидай ответной помощи от коллег🤝')
+         score_support_this_user = db_get('users', id_to_user, 'score_support')
+         db_set(id_to_user, '', '', 'score_support',
+                score_support_this_user + 1)
+         score_support_this_user = db_get('users', id_to_user, 'score_support')
+         score_help_this_user = db_get('users', id_to_user, 'score_help')
+         db_set(id_to_user, '', '', 'rating',
+                score_support_this_user / score_help_this_user)
          offset = call.message.caption_entities[0].offset
          length = call.message.caption_entities[0].length
          user_id_help = call.message.caption[offset:offset + length]
-         # bot.send_message(user_id_help, 'Тебе очко помощи 🙏')
-         score_help_that_user = db.reference(
-             f'users/{user_id_help}/score_help').get()
-         db.reference(f'users/{user_id_help}/score_help').set(score_help_that_user +
-                                                              1)  #type: ignore
-         score_help_that_user = db.reference(
-             f'users/{user_id_help}/score_help').get()
-         score_support_that_user = db.reference(
-             f'users/{user_id_help}/score_support').get()
-         db.reference(f'users/{user_id_help}/rating').set(
-             score_support_that_user / score_help_that_user)  #type: ignore
+         bot.send_message(user_id_help, 'Тебе помогли, поздравляю!🎉 Не отставай и помогай коллегам в ответ🫂')
+         score_help_that_user = db_get('users', user_id_help, 'score_help')
+         db_set(user_id_help, '', '', 'score_help', score_help_that_user + 1)
+         score_help_that_user = db_get('users', user_id_help, 'score_help')
+         score_support_that_user = db_get('users', user_id_help,
+                                          'score_support')
+         db_set(user_id_help, '', '', 'rating',
+                score_support_that_user / score_help_that_user)
       else:
          markup = create_buttons('moder_question', '', random_emoji()[0], 0, 0)
       bot.edit_message_reply_markup(call.message.chat.id,
