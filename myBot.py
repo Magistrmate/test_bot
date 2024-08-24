@@ -280,9 +280,6 @@ def bot_runner():
 
    @bot.message_handler(func=lambda _message: True, chat_types=['private'])
    def send_message(message):
-      if 1 not in db_get('users', message.from_user.id,
-                         'support_channels_done'):
-         check_time_support_channels_done(message)
       id_user = message.from_user.id
       send(message, f'{check_admin(message)}\n{message.text}', '', False, '',
            None)
@@ -316,6 +313,9 @@ def bot_runner():
       else:
          send(message, 'выберите, кого бы вы хотели поддержать 🫂',
               'Лучи добра', True, status, None)
+      if 1 not in db_get('users', message.from_user.id,
+                      'support_channels_done'):
+         check_time_support_channels_done(message)
 
    @bot.callback_query_handler(
        func=lambda _call: _call.message.chat.type == 'private')
@@ -344,7 +344,7 @@ def bot_runner():
             support_button = 0
             if len(db_get(
                 'users', call.from_user.id,
-                'support_channels_done')) == len(db_get('users', '', '')) - 1:
+                'support_channels_done')) == len(db_get('users', '', '')):
                next_back_buttons = 1
                support_button = 1
                text = db_get('script', '', 'after_help') + db_get(
@@ -371,7 +371,6 @@ def bot_runner():
                       f'users/{user_id}/name_channel').get()
                link_channel = db.reference(
                    f'users/{user_id}/link_channel').get()
-               # rating = db.reference(f'users/{user_id}/rating').get()
                rating = round(db_get('users', user_id, 'rating'), 2)
                score_help = db.reference(f'users/{user_id}/score_help').get()
                score_support = db.reference(
