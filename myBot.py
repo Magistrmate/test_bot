@@ -62,7 +62,7 @@ def id_topic_target(m):
    return id_topic
 
 
-def create_buttons(form, link, pin, n_b_b, s_b):
+def create_buttons(form, link_faq, pin, n_b_b, s_b):
    create_markup = types.InlineKeyboardMarkup()
    if form == 'main':
       button1 = types.InlineKeyboardButton('⬆ Поддержать этот канал ❤',
@@ -74,16 +74,22 @@ def create_buttons(form, link, pin, n_b_b, s_b):
       button5 = types.InlineKeyboardButton('Ваш канал 🌠',
                                            callback_data='self_channel')
       button6 = types.InlineKeyboardButton('Что к чему 💁‍♂',
-                                           callback_data='help')
+                                           callback_data='faq')
 
       if s_b == 0:
          create_markup.row(button1)
       if n_b_b == 0:
          create_markup.row(button2, button3)
       create_markup.row(button4)
-      create_markup.row(button5, button6)
+      if link_faq == 'faq':
+         create_markup.row(button5)
+         button6 = types.InlineKeyboardButton('Возврат ↩',
+             callback_data='back_to_main')
+         create_markup.row(button6)
+      else:
+         create_markup.row(button5, button6)
    elif form == 'top':
-      if link == 'change_link':
+      if link_faq == 'change_link':
          button1 = types.InlineKeyboardButton('Изменить ваш ТОП контент 🔄',
                                               callback_data='change_link')
          create_markup.row(button1)
@@ -91,14 +97,14 @@ def create_buttons(form, link, pin, n_b_b, s_b):
                                            callback_data='back_to_main')
       create_markup.row(button1)
    elif form == 'moder_question':
-      button1 = types.InlineKeyboardButton(f'{link} Acceptance',
+      button1 = types.InlineKeyboardButton(f'{link_faq} Acceptance',
                                            callback_data='acceptance')
       button2 = types.InlineKeyboardButton(f'{pin} Rejection',
                                            callback_data='rejection')
       create_markup.row(button1, button2)
    else:
       button1 = types.InlineKeyboardButton('   Перейти оставить лайк 👍 и '\
-                                           'комментарий 💬   ',  link)
+                                           'комментарий 💬   ',  link_faq)
       button2 = types.InlineKeyboardButton('Возврат ↩',
                                            callback_data='back_to_main')
       create_markup.row(button1)
@@ -398,6 +404,9 @@ def bot_runner():
          elif call.data == 'self_channel':
             text = message_channel(call, True)
             markup = create_buttons('top', 'change_link', '', 0, 0)
+         elif call.data == 'faq':
+            text = formating_text(db_get('script', '', 'faq'))
+            markup = create_buttons('main', 'faq', '', 1, 1)
          bot.edit_message_text(text,
                                call.message.chat.id,
                                call.message.id,
