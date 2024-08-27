@@ -22,7 +22,7 @@ chats_with_bot_id = int(os.environ['CHATS_WITH_BOT_ID'])
 
 
 def formating_text(text):
-   text = (text.replace('_', '\\_').replace('*', '\\*').replace(
+   text = (text.replace('_', '\\_').replace('8*', '\\*').replace(
        '[', '\\[').replace(']', '\\]').replace('(', '\\(').replace(
            ')', '\\)').replace('~', '\\~').replace('"', '\"').replace(
                '>', '\\>').replace('#', '\\#').replace('+', '\\+').replace(
