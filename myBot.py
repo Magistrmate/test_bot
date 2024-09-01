@@ -22,7 +22,7 @@ chats_with_bot_id = int(os.environ['CHATS_WITH_BOT_ID'])
 
 
 def formating_text(text):
-   text = (text.replace('_', '\\_').replace('8*', '\\*').replace(
+   text = (text.replace('_', '\\_').replace('*', '\\*').replace(
        '[', '\\[').replace(']', '\\]').replace('(', '\\(').replace(
            ')', '\\)').replace('~', '\\~').replace('"', '\"').replace(
                '>', '\\>').replace('#', '\\#').replace('+', '\\+').replace(
@@ -62,7 +62,7 @@ def id_topic_target(m):
    return id_topic
 
 
-def create_buttons(form, link_faq, pin, n_b_b, s_b):
+def create_buttons(form, name_button, pin, n_b_b, s_b):
    create_markup = types.InlineKeyboardMarkup()
    if form == 'main':
       button1 = types.InlineKeyboardButton('⬆ Поддержать этот канал ❤',
@@ -75,21 +75,22 @@ def create_buttons(form, link_faq, pin, n_b_b, s_b):
                                            callback_data='self_channel')
       button6 = types.InlineKeyboardButton('Что к чему 💁‍♂',
                                            callback_data='faq')
-
+      button7 = types.InlineKeyboardButton('Связь с техподдержкой',
+                                           callback_data='support')
       if s_b == 0:
          create_markup.row(button1)
       if n_b_b == 0:
          create_markup.row(button2, button3)
       create_markup.row(button4)
-      if link_faq == 'faq':
+      if name_button == 'faq':
          create_markup.row(button5)
          button6 = types.InlineKeyboardButton('Возврат ↩',
-             callback_data='back_to_main')
+                                              callback_data='back_to_main')
          create_markup.row(button6)
       else:
          create_markup.row(button5, button6)
    elif form == 'top':
-      if link_faq == 'change_link':
+      if name_button == 'change_link':
          button1 = types.InlineKeyboardButton('Изменить ваш ТОП контент 🔄',
                                               callback_data='change_link')
          create_markup.row(button1)
@@ -97,18 +98,26 @@ def create_buttons(form, link_faq, pin, n_b_b, s_b):
                                            callback_data='back_to_main')
       create_markup.row(button1)
    elif form == 'moder_question':
-      button1 = types.InlineKeyboardButton(f'{link_faq} Acceptance',
+      button1 = types.InlineKeyboardButton(f'{name_button} Acceptance',
                                            callback_data='acceptance')
       button2 = types.InlineKeyboardButton(f'{pin} Rejection',
                                            callback_data='rejection')
       create_markup.row(button1, button2)
    else:
       button1 = types.InlineKeyboardButton('   Перейти оставить лайк 👍 и '\
-                                           'комментарий 💬   ',  link_faq)
+                                           'комментарий 💬   ',  name_button)
       button2 = types.InlineKeyboardButton('Возврат ↩',
                                            callback_data='back_to_main')
       create_markup.row(button1)
       create_markup.row(button2)
+   if name_button == 'support':
+      button2 = types.InlineKeyboardButton('Возврат ↩',
+                                           callback_data='back_to_main')
+      create_markup.row(button2)
+   else:
+      button7 = types.InlineKeyboardButton('Связь с техподдержкой',
+                                           callback_data='support')
+      create_markup.row(button7)
    return create_markup
 
 
@@ -315,12 +324,12 @@ def bot_runner():
             db_set(message, 'time_change_link', '', '', message.date)
          else:
             send(message, 'Ожидаю скриншот с твоей помощью каналу 🙂',
-                 'Нажми на скрепку и т.д.', True, status, None)
-      else:
+                 'Нажми на скрепку и т.д.', True, status, None)   
+      elif status != 'support_time':
          send(message, 'выберите, кого бы вы хотели поддержать 🫂',
               'Лучи добра', True, status, None)
       if 1 not in db_get('users', message.from_user.id,
-                      'support_channels_done'):
+                         'support_channels_done'):
          check_time_support_channels_done(message)
 
    @bot.callback_query_handler(
@@ -348,9 +357,9 @@ def bot_runner():
                db_set(call, 'actual_page', '', '', actual_page)
             next_back_buttons = 0
             support_button = 0
-            if len(db_get(
-                'users', call.from_user.id,
-                'support_channels_done')) == len(db_get('users', '', '')):
+            if len(db_get('users', call.from_user.id,
+                          'support_channels_done')) == len(
+                              db_get('users', '', '')):
                next_back_buttons = 1
                support_button = 1
                text = db_get('script', '', 'after_help') + db_get(
@@ -407,6 +416,14 @@ def bot_runner():
          elif call.data == 'faq':
             text = formating_text(db_get('script', '', 'faq'))
             markup = create_buttons('main', 'faq', '', 1, 1)
+         elif call.data == 'support':
+            text = formating_text(db_get('script', '', 'support'))
+            markup = create_buttons('main', 'support', '', 1, 1)
+            db_set(call, 'status', '', '', 'support_time')
+            bot.send_message(chats_with_bot_id,
+                             '@magistrmate тебя ждут оло',
+                             'MarkdownV2',
+                             message_thread_id=id_topic_target(call))
          bot.edit_message_text(text,
                                call.message.chat.id,
                                call.message.id,
@@ -439,7 +456,10 @@ def bot_runner():
          id_to_user = list(
              db.reference('users').order_by_child('id_topic').equal_to(
                  call.message.message_thread_id).get())[0]
-         bot.send_message(id_to_user, 'Твоя помощь прошла модерацию👨‍⚖️ Ожидай ответной помощи от коллег🤝')
+         bot.send_message(
+             id_to_user,
+             'Твоя помощь прошла модерацию👨‍⚖️ Ожидай ответной помощи от коллег🤝'
+         )
          score_support_this_user = db_get('users', id_to_user, 'score_support')
          db_set(id_to_user, '', '', 'score_support',
                 score_support_this_user + 1)
@@ -450,7 +470,10 @@ def bot_runner():
          offset = call.message.caption_entities[0].offset
          length = call.message.caption_entities[0].length
          user_id_help = call.message.caption[offset:offset + length]
-         bot.send_message(user_id_help, 'Тебе помогли, поздравляю!🎉 Не отставай и помогай коллегам в ответ🫂')
+         bot.send_message(
+             user_id_help,
+             'Тебе помогли, поздравляю!🎉 Не отставай и помогай коллегам в ответ🫂'
+         )
          score_help_that_user = db_get('users', user_id_help, 'score_help')
          db_set(user_id_help, '', '', 'score_help', score_help_that_user + 1)
          score_help_that_user = db_get('users', user_id_help, 'score_help')
