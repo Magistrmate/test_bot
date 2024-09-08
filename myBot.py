@@ -103,6 +103,10 @@ def create_buttons(form, name_button, pin, n_b_b, s_b):
       button2 = types.InlineKeyboardButton(f'{pin} Rejection',
                                            callback_data='rejection')
       create_markup.row(button1, button2)
+   elif form == 'support':
+      button1 = types.InlineKeyboardButton(f'{name_button} Пока',
+          callback_data='support_end')
+      create_markup.row(button1)
    else:
       button1 = types.InlineKeyboardButton('   Перейти оставить лайк 👍 и '\
                                            'комментарий 💬   ',  name_button)
@@ -114,8 +118,8 @@ def create_buttons(form, name_button, pin, n_b_b, s_b):
       button2 = types.InlineKeyboardButton('Возврат ↩',
                                            callback_data='back_to_main')
       create_markup.row(button2)
-   else:
-      button7 = types.InlineKeyboardButton('Связь с техподдержкой',
+   elif form != 'support':
+      button7 = types.InlineKeyboardButton('Связь с техподдержкой 🛟',
                                            callback_data='support')
       create_markup.row(button7)
    return create_markup
@@ -203,9 +207,11 @@ def message_channel(c, from_to_back):
    return formating_text(text) + dot
 
 
-def send(m, text, text_placeholder, user_to, status, markup, parse_mode=None):
+def send(m, text, text_placeholder, user_to, status, markup, id_to_user, parse_mode=None):
+   if id_to_user == '':
+      id_to_user = m.from_user.id
    if user_to:
-      if check_hello(m.from_user.id):
+      if check_hello(id_to_user):
          text = f'Здравствуйте, {m.from_user.first_name}, {text}'
       if 'done' not in status:
          markup = types.ForceReply(True, text_placeholder)
@@ -213,7 +219,7 @@ def send(m, text, text_placeholder, user_to, status, markup, parse_mode=None):
          next_back_buttons = 0
          support_button = 0
          if len(db_get(
-             'users', m.from_user.id,
+             'users', id_to_user,
              'support_channels_done')) == len(db_get('users', '', '')) - 1:
             next_back_buttons = 1
             support_button = 1
@@ -222,16 +228,19 @@ def send(m, text, text_placeholder, user_to, status, markup, parse_mode=None):
          else:
             text = f'{formating_text(text)}\n{message_channel(m, False)}'
             if len(db_get(
-                'users', m.from_user.id,
+                'users', id_to_user,
                 'support_channels_done')) == len(db_get('users', '', '')) - 2:
                next_back_buttons = 1
+         if text_placeholder == 'just_message':
+            next_back_buttons = 0
+            support_button = 0
          markup = create_buttons('main', '', '', next_back_buttons,
                                  support_button)
          parse_mode = 'MarkdownV2'
       if 'Callback' not in str(m.__class__):
          db_set(m, 'messages', m.id, '', m.json)
          db_set(m, 'messages', m.id, 'answer_bot', text)
-      bot.send_message(m.from_user.id, text, parse_mode, reply_markup=markup)
+      bot.send_message(id_to_user, text, parse_mode, reply_markup=markup)
    bot.send_message(chats_with_bot_id,
                     text,
                     parse_mode,
@@ -245,23 +254,23 @@ def branch_which(m, branch, status, next_status, link, text_placeholder):
          if 'dzen.ru' in m.text:
             if next_status == 'change_link_done':
                send(m, db_get('script', branch, 'change_link'),
-                    text_placeholder, True, next_status, None)
+                    text_placeholder, True, next_status, None, '')
             else:
                send(m, db_get('script', branch, 'success'), text_placeholder,
-                    True, next_status, None)
+                    True, next_status, None, '')
             offset = m.entities[0].offset
             length = m.entities[0].length
             db_set(m, link, '', '', m.text[offset:offset + length])
             db_set(m, 'status', '', '', next_status)
          else:
             send(m, db_get('script', 'not_dzen_link', ''), text_placeholder,
-                 True, status, None)
+                 True, status, None, '')
       else:
          send(m, db_get('script', branch, 'not_this_entities'),
-              text_placeholder, True, status, None)
+              text_placeholder, True, status, None, '')
    else:
       send(m, db_get('script', branch, 'no_entities'), text_placeholder, True,
-           status, None)
+           status, None, '')
 
 
 def bot_check():
@@ -294,19 +303,20 @@ def check_hello(id_user):
 def bot_runner():
 
    @bot.message_handler(func=lambda _message: True, chat_types=['private'])
-   def send_message(message):
+   def send_message(message, markup=None):
       id_user = message.from_user.id
-      send(message, f'{check_admin(message)}\n{message.text}', '', False, '',
-           None)
       status = db_get('users', id_user, 'status')
+      if status == 'support_time':
+         markup = create_buttons('support', random_emoji()[0], '', 0, 0)
+      send(message, f'{check_admin(message)}\n{message.text}', '', False, '', markup, '')
       if status == '':
          send(message, db_get('script', 'start_text', ''), 'Название канала',
-              True, status, None)
+              True, status, None, '')
          db_set(message, 'status', '', '', 'wait_name_channel')
       elif 'wait' in status:
          if status == 'wait_name_channel':
             send(message, 'Хорошо, теперь скиньте мне вашу ссылку на канал 😌',
-                 'Ссылка на канал', True, status, None)
+                 'Ссылка на канал', True, status, None, '')
             db_set(message, 'status', '', '', 'wait_link_channel')
             db_set(message, 'name_channel', '', '', message.text)
          elif status == 'wait_link_channel':
@@ -324,10 +334,10 @@ def bot_runner():
             db_set(message, 'time_change_link', '', '', message.date)
          else:
             send(message, 'Ожидаю скриншот с твоей помощью каналу 🙂',
-                 'Нажми на скрепку и т.д.', True, status, None)   
+                 'Нажми на скрепку и т.д.', True, status, None, '')   
       elif status != 'support_time':
          send(message, 'выберите, кого бы вы хотели поддержать 🫂',
-              'Лучи добра', True, status, None)
+              'just_message', True, status, None, '')
       if 1 not in db_get('users', message.from_user.id,
                          'support_channels_done'):
          check_time_support_channels_done(message)
@@ -340,6 +350,8 @@ def bot_runner():
       actual_page = db.reference(
           f'users/{call.from_user.id}/actual_page').get()
       markup = create_buttons('main', '', '', 0, 0)
+      send(call, f'{check_admin(call)}\n*Нажал на кнопку {call.data}*', '',
+           False, '', None, '')
       if call.data != 'change_link':
          if call.data == 'next' or call.data == 'back' or call.data == 'back_to_main':
             quantity = len(db.reference('users').get())
@@ -429,7 +441,7 @@ def bot_runner():
                                call.message.id,
                                reply_markup=markup,
                                parse_mode='MarkdownV2')
-         send(call, text, '', False, '', markup)
+         send(call, text, '', False, '', markup, '')
       else:
          if time.time() - db_get('users', call.from_user.id,
                                  'time_change_link') >= 86400:
@@ -437,25 +449,23 @@ def bot_runner():
             send(call,
                  'жду от вас ссылку на новый контент с вашего канала 🙋‍♂',
                  'Ссылка на пост, видео или статью', True, 'wait_change_link',
-                 None)
+                 None, '')
          else:
             time_wait = 86400 - (time.time() - db_get(
                 'users', call.from_user.id, 'time_change_link'))
             bot.answer_callback_query(
                 call.id, f'Извините, ссылку можно будет изменить через '
                 f'{time.strftime("%H:%M:%S", time.gmtime(time_wait))} 🙏')
-      send(call, f'{check_admin(call)}\n*Нажал на кнопку {call.data}*', '',
-           False, '', None)
 
    @bot.callback_query_handler(
        func=lambda _call: _call.message.chat.type == 'supergroup')
    def callback_query(call):
+      id_to_user = list(
+          db.reference('users').order_by_child('id_topic').equal_to(
+              call.message.message_thread_id).get())[0]
       if call.data == 'acceptance':
          bot.unpin_chat_message(call.message.chat.id, call.message.id)
          markup = create_buttons('moder_question', random_emoji()[0], '', 0, 0)
-         id_to_user = list(
-             db.reference('users').order_by_child('id_topic').equal_to(
-                 call.message.message_thread_id).get())[0]
          bot.send_message(
              id_to_user,
              'Твоя помощь прошла модерацию👨‍⚖️ Ожидай ответной помощи от коллег🤝'
@@ -481,12 +491,27 @@ def bot_runner():
                                           'score_support')
          db_set(user_id_help, '', '', 'rating',
                 score_support_that_user / score_help_that_user)
+      elif call.data == 'support_end':
+         bot.send_message(id_to_user, 'пакаа', )
+         db_set(id_to_user, '', '', 'status', 'support_done')
+         send(call, 'выберите, кого бы вы хотели поддержать 🫂',
+              'just_message', True, 'support_done', None, id_to_user)
       else:
          markup = create_buttons('moder_question', '', random_emoji()[0], 0, 0)
-      bot.edit_message_reply_markup(call.message.chat.id,
+         bot.edit_message_reply_markup(call.message.chat.id,
                                     call.message.id,
                                     reply_markup=markup)
-
+   
+   
+   @bot.message_handler(func=lambda _message: True, chat_types=['supergroup'])
+   def send_support(message):
+      id_to_user = list(
+          db.reference('users').order_by_child('id_topic').equal_to(
+              message.message_thread_id).get())[0]
+      if db_get('users', id_to_user, 'status') == 'support_time':
+         bot.send_message(id_to_user, message.text)
+         
+   
    @bot.message_handler(func=lambda _message: True, content_types=['photo'])
    def photo_handler(photo):
       db_set(photo, 'status', '', '', 'screenshot_done')
@@ -506,7 +531,7 @@ def bot_runner():
           photo,
           db_get('script', '', 'after_help') +
           db_get('script', '', 'who_next'), '', True, 'registration_done',
-          None)
+          None, '')
 
    @bot.message_handler(content_types=['pinned_message'])
    def message_handler(notification):
