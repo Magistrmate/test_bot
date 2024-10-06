@@ -105,7 +105,7 @@ def create_buttons(form, name_button, pin, n_b_b, s_b, m):
       create_markup.row(button1, button2)
    elif form == 'support':
       button1 = types.InlineKeyboardButton(f'{name_button} Пока',
-          callback_data='support_end')
+                                           callback_data='support_end')
       create_markup.row(button1)
    else:
       button1 = types.InlineKeyboardButton('   Перейти оставить лайк 👍 и '\
@@ -118,7 +118,8 @@ def create_buttons(form, name_button, pin, n_b_b, s_b, m):
       button2 = types.InlineKeyboardButton('Возврат ↩',
                                            callback_data='back_to_main')
       create_markup.row(button2)
-   elif form != 'support'and db_get('users', m.from_user.id, 'status') != "support_time":
+   elif form != 'support' and db_get('users', m.from_user.id,
+                                     'status') != "support_time":
       button7 = types.InlineKeyboardButton('Связь с техподдержкой 🛟',
                                            callback_data='support')
       create_markup.row(button7)
@@ -207,7 +208,14 @@ def message_channel(c, from_to_back):
    return formating_text(text) + dot
 
 
-def send(m, text, text_placeholder, user_to, status, markup, id_to_user, parse_mode=None):
+def send(m,
+         text,
+         text_placeholder,
+         user_to,
+         status,
+         markup,
+         id_to_user,
+         parse_mode=None):
    if id_to_user == '':
       id_to_user = m.from_user.id
    if user_to:
@@ -307,8 +315,10 @@ def bot_runner():
       id_user = message.from_user.id
       status = db_get('users', id_user, 'status')
       if status == 'support_time':
-         markup = create_buttons('support', random_emoji()[0], '', 0, 0, message)
-      send(message, f'{check_admin(message)}\n{message.text}', '', False, '', markup, '')
+         markup = create_buttons('support',
+                                 random_emoji()[0], '', 0, 0, message)
+      send(message, f'{check_admin(message)}\n{message.text}', '', False, '',
+           markup, '')
       if status == '':
          send(message, db_get('script', 'start_text', ''), 'Название канала',
               True, status, None, '')
@@ -334,7 +344,7 @@ def bot_runner():
             db_set(message, 'time_change_link', '', '', message.date)
          else:
             send(message, 'Ожидаю скриншот с твоей помощью каналу 🙂',
-                 'Нажми на скрепку и т.д.', True, status, None, '')   
+                 'Нажми на скрепку и т.д.', True, status, None, '')
       elif status != 'support_time':
          send(message, 'выберите, кого бы вы хотели поддержать 🫂',
               'just_message', True, status, None, '')
@@ -416,7 +426,8 @@ def bot_runner():
                 f'users/{actual_user_id}/link_top_media').get()
             text = formating_text(db_get(
                 'script', '', 'text_to_boost')) + f'[\\.]({link_top_media})'
-            markup = create_buttons('top_media', link_top_media, '', 0, 0, call)
+            markup = create_buttons('top_media', link_top_media, '', 0, 0,
+                                    call)
             db_set(call, 'status', '', '', 'wait_screenshot')
             id_user_supporting = list(
                 db.reference('users').order_by_child('link_channel').equal_to(
@@ -463,9 +474,13 @@ def bot_runner():
       id_to_user = list(
           db.reference('users').order_by_child('id_topic').equal_to(
               call.message.message_thread_id).get())[0]
+      offset = call.message.caption_entities[0].offset
+      length = call.message.caption_entities[0].length
+      user_id_help = call.message.caption[offset:offset + length]
       if call.data == 'acceptance':
          bot.unpin_chat_message(call.message.chat.id, call.message.id)
-         markup = create_buttons('moder_question', random_emoji()[0], '', 0, 0, call)
+         markup = create_buttons('moder_question',
+                                 random_emoji()[0], '', 0, 0, call)
          bot.send_message(
              id_to_user,
              'Твоя помощь прошла модерацию👨‍⚖️ Ожидай ответной помощи от коллег🤝'
@@ -477,9 +492,6 @@ def bot_runner():
          score_help_this_user = db_get('users', id_to_user, 'score_help')
          db_set(id_to_user, '', '', 'rating',
                 score_support_this_user / score_help_this_user)
-         offset = call.message.caption_entities[0].offset
-         length = call.message.caption_entities[0].length
-         user_id_help = call.message.caption[offset:offset + length]
          bot.send_message(
              user_id_help,
              'Тебе помогли, поздравляю!🎉 Не отставай и помогай коллегам в ответ🫂'
@@ -491,18 +503,28 @@ def bot_runner():
                                           'score_support')
          db_set(user_id_help, '', '', 'rating',
                 score_support_that_user / score_help_that_user)
+      elif call.data == 'rejection':
+         markup = create_buttons('moder_question',
+                                 random_emoji()[0], '', 0, 0, call)
+         link_channel_help = db_get('users', user_id_help, 'link_channel')
+         text = 'Ваш скриншот не прошёл модерацию👨‍⚖️ Вы можете связятся с поддержкой или снова оправить скрин с поддержкой данного канала🤝'
+         markup = create_buttons('main', '', '', 0, 0, call)
+         bot.send_message(
+             id_to_user,
+             formating_text(text) + f'[\\.]({link_channel_help})', 'MarkdownV2', reply_markup=markup
+         )
       elif call.data == 'support_end':
-         bot.send_message(id_to_user, 'пакаа', )
+         bot.send_message(id_to_user, db_get('script', '', 'support_end'))
          db_set(id_to_user, '', '', 'status', 'support_done')
-         send(call, 'выберите, кого бы вы хотели поддержать 🫂',
-              'just_message', True, 'support_done', None, id_to_user)
+         send(call, 'выберите, кого бы вы хотели поддержать 🫂', 'just_message',
+              True, 'support_done', None, id_to_user)
       else:
-         markup = create_buttons('moder_question', '', random_emoji()[0], 0, 0, call)
+         markup = create_buttons('moder_question', '',
+                                 random_emoji()[0], 0, 0, call)
          bot.edit_message_reply_markup(call.message.chat.id,
-                                    call.message.id,
-                                    reply_markup=markup)
-   
-   
+                                       call.message.id,
+                                       reply_markup=markup)
+
    @bot.message_handler(func=lambda _message: True, chat_types=['supergroup'])
    def send_support(message):
       id_to_user = list(
@@ -510,8 +532,7 @@ def bot_runner():
               message.message_thread_id).get())[0]
       if db_get('users', id_to_user, 'status') == 'support_time':
          bot.send_message(id_to_user, message.text)
-         
-   
+
    @bot.message_handler(func=lambda _message: True, content_types=['photo'])
    def photo_handler(photo):
       db_set(photo, 'status', '', '', 'screenshot_done')
