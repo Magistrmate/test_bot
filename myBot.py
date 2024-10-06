@@ -474,45 +474,46 @@ def bot_runner():
       id_to_user = list(
           db.reference('users').order_by_child('id_topic').equal_to(
               call.message.message_thread_id).get())[0]
-      offset = call.message.caption_entities[0].offset
-      length = call.message.caption_entities[0].length
-      user_id_help = call.message.caption[offset:offset + length]
-      if call.data == 'acceptance':
-         bot.unpin_chat_message(call.message.chat.id, call.message.id)
-         markup = create_buttons('moder_question',
-                                 random_emoji()[0], '', 0, 0, call)
-         bot.send_message(
-             id_to_user,
-             'Твоя помощь прошла модерацию👨‍⚖️ Ожидай ответной помощи от коллег🤝'
-         )
-         score_support_this_user = db_get('users', id_to_user, 'score_support')
-         db_set(id_to_user, '', '', 'score_support',
-                score_support_this_user + 1)
-         score_support_this_user = db_get('users', id_to_user, 'score_support')
-         score_help_this_user = db_get('users', id_to_user, 'score_help')
-         db_set(id_to_user, '', '', 'rating',
-                score_support_this_user / score_help_this_user)
-         bot.send_message(
-             user_id_help,
-             'Тебе помогли, поздравляю!🎉 Не отставай и помогай коллегам в ответ🫂'
-         )
-         score_help_that_user = db_get('users', user_id_help, 'score_help')
-         db_set(user_id_help, '', '', 'score_help', score_help_that_user + 1)
-         score_help_that_user = db_get('users', user_id_help, 'score_help')
-         score_support_that_user = db_get('users', user_id_help,
-                                          'score_support')
-         db_set(user_id_help, '', '', 'rating',
-                score_support_that_user / score_help_that_user)
-      elif call.data == 'rejection':
-         markup = create_buttons('moder_question',
-                                 random_emoji()[0], '', 0, 0, call)
-         link_channel_help = db_get('users', user_id_help, 'link_channel')
-         text = 'Ваш скриншот не прошёл модерацию👨‍⚖️ Вы можете связятся с поддержкой или снова оправить скрин с поддержкой данного канала🤝'
-         markup = create_buttons('main', '', '', 0, 0, call)
-         bot.send_message(
-             id_to_user,
-             formating_text(text) + f'[\\.]({link_channel_help})', 'MarkdownV2', reply_markup=markup
-         )
+      if call.data == ('acceptance' or 'rejection'):
+         offset = call.message.caption_entities[0].offset
+         length = call.message.caption_entities[0].length
+         user_id_help = call.message.caption[offset:offset + length]
+         if call.data == 'acceptance':
+            bot.unpin_chat_message(call.message.chat.id, call.message.id)
+            markup = create_buttons('moder_question',
+                                    random_emoji()[0], '', 0, 0, call)
+            bot.send_message(
+                id_to_user,
+                'Твоя помощь прошла модерацию👨‍⚖️ Ожидай ответной помощи от коллег🤝'
+            )
+            score_support_this_user = db_get('users', id_to_user, 'score_support')
+            db_set(id_to_user, '', '', 'score_support',
+                   score_support_this_user + 1)
+            score_support_this_user = db_get('users', id_to_user, 'score_support')
+            score_help_this_user = db_get('users', id_to_user, 'score_help')
+            db_set(id_to_user, '', '', 'rating',
+                   score_support_this_user / score_help_this_user)
+            bot.send_message(
+                user_id_help,
+                'Тебе помогли, поздравляю!🎉 Не отставай и помогай коллегам в ответ🫂'
+            )
+            score_help_that_user = db_get('users', user_id_help, 'score_help')
+            db_set(user_id_help, '', '', 'score_help', score_help_that_user + 1)
+            score_help_that_user = db_get('users', user_id_help, 'score_help')
+            score_support_that_user = db_get('users', user_id_help,
+                                             'score_support')
+            db_set(user_id_help, '', '', 'rating',
+                   score_support_that_user / score_help_that_user)
+         elif call.data == 'rejection':
+            markup = create_buttons('moder_question',
+                                    random_emoji()[0], '', 0, 0, call)
+            link_channel_help = db_get('users', user_id_help, 'link_channel')
+            text = 'Ваш скриншот не прошёл модерацию👨‍⚖️ Вы можете связятся с поддержкой или снова оправить скрин с поддержкой данного канала🤝'
+            markup = create_buttons('main', '', '', 0, 0, call)
+            bot.send_message(
+                id_to_user,
+                formating_text(text) + f'[\\.]({link_channel_help})', 'MarkdownV2', reply_markup=markup
+            )
       elif call.data == 'support_end':
          bot.send_message(id_to_user, db_get('script', '', 'support_end'))
          db_set(id_to_user, '', '', 'status', 'support_done')
